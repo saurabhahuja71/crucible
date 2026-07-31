@@ -1,0 +1,49 @@
+[workspace]
+trust = false
+auto_approve = false
+
+[agent]
+max_turns = 50
+summarize_after_messages = 40
+
+[providers]
+primary = "openai"
+failover = ["ollama"]
+
+[providers.openai]
+type = "openai_compatible"
+api_key = "${OPENAI_API_KEY}"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o"
+temperature = 0.2
+max_tokens = 8192
+timeout = 120
+
+[providers.ollama]
+type = "ollama"
+base_url = "http://localhost:11434"
+model = "llama3.2"
+temperature = 0.2
+max_tokens = 8192
+timeout = 300
+
+[safety]
+sandbox_shell = true
+confirm_destructive = true
+# allowed_commands defaults to ~90 common dev commands; override to restrict further
+
+[ssh]
+config_path = "~/.config/forge/ssh_hosts.toml"
+default_timeout = 30
+# allowed_commands uses the same defaults as [safety]; override independently if needed
+
+[parallel]
+max_workers = 4
+isolation = "thread"
+
+[logging]
+level = "info"
+audit_path = "~/.local/share/forge/audit.log"
+
+[mcp]
+servers = []

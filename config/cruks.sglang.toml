@@ -1,0 +1,44 @@
+# Cruks (Ruby Forge) + SGLang on local tunnel :30000
+# Use with: cruks-sglang  (alias: cruks-s)
+# Prereq: sglang-up  OR  sglang-tunnel (if server already running)
+
+[workspace]
+trust = true
+auto_approve = false
+
+[agent]
+max_turns = 50
+summarize_after_messages = 40
+max_tokens = 4096
+system_prompt = "You are Cruks, a precise and capable coding agent. Use tools to read, search, edit, and execute code."
+
+[providers]
+primary = "sglang"
+failover = []
+
+[providers.sglang]
+type = "openai_compatible"
+api_key = "sglang"
+base_url = "http://127.0.0.1:30000/v1"
+model = "qwen2.5-coder-32b-q4_k_m.gguf"
+temperature = 0.2
+max_tokens = 4096
+timeout = 300
+
+[safety]
+sandbox_shell = true
+confirm_destructive = true
+
+[ssh]
+config_path = "~/.config/forge/ssh_hosts.toml"
+default_timeout = 30
+
+[parallel]
+max_workers = 4
+
+[logging]
+level = "info"
+audit_path = "~/.local/share/forge/audit.log"
+
+[mcp]
+servers = []

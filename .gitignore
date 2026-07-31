@@ -1,0 +1,7 @@
+/.bundle/
+/Gemfile.lock
+/pkg/
+*.gem
+/.rspec_status
+/tmp/
+/.forge/

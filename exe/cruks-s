@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# cruks-s — SGLang shortcut for the Ruby Cruks/Forge agent (alias target).
+exec "$(cd "$(dirname "$0")/.." && pwd)/scripts/cruks-sglang.sh" "$@"
