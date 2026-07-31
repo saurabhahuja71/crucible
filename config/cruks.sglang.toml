@@ -30,7 +30,7 @@ sandbox_shell = true
 confirm_destructive = true
 
 [ssh]
-config_path = "~/.config/forge/ssh_hosts.toml"
+config_path = "~/.config/cruks/ssh_hosts.toml"
 default_timeout = 30
 
 [parallel]
@@ -38,7 +38,7 @@ max_workers = 4
 
 [logging]
 level = "info"
-audit_path = "~/.local/share/forge/audit.log"
+audit_path = "~/.local/share/cruks/audit.log"
 
 [mcp]
 servers = []

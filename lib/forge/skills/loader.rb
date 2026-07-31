@@ -5,7 +5,7 @@ module Forge
     class Loader
       SKILL_DIRS = [
         DATA_DIR.join("skills"),
-        Pathname(Dir.pwd).join(".forge", "skills")
+        Pathname(Dir.pwd).join(".cruks", "skills")
       ].freeze
 
       def self.load_all(tool_deps)

@@ -15,7 +15,7 @@ module Forge
 
       def banner
         TTY::Box.frame(
-          "Forge v#{Forge::VERSION}\nLocal-first coding agent",
+          "Cruks v#{Forge::VERSION}\nLocal-first coding agent",
           title: { top_left: " ⚒ ", bottom_right: " ⚒ " },
           border: :thick,
           padding: [1, 2]
@@ -23,42 +23,42 @@ module Forge
       end
 
       def assistant(content)
-        puts @pastel.green("▸ Assistant:")
-        puts wrap(content)
-        puts
+        $stdout.puts @pastel.green("▸ Assistant:")
+        $stdout.puts wrap(content)
+        $stdout.puts
       end
 
       def stream_chunk(chunk)
-        print @pastel.dim(chunk)
+        $stdout.print @pastel.dim(chunk)
         $stdout.flush
       end
 
       def stream_end
-        puts
-        puts
+        $stdout.puts
+        $stdout.puts
       end
 
       def tool_start(name, arguments)
         args_preview = arguments.is_a?(Hash) ? arguments.inspect[0, 80] : arguments.to_s[0, 80]
-        puts @pastel.yellow("  ⚙ #{name}") + @pastel.dim(" #{args_preview}")
+        $stdout.puts @pastel.yellow("  ⚙ #{name}") + @pastel.dim(" #{args_preview}")
       end
 
       def tool_end(name, output, success:)
         icon = success ? "✓" : "✗"
         color = success ? :cyan : :red
-        puts @pastel.public_send(color, "  #{icon} #{name}") + @pastel.dim(" → #{output}")
+        $stdout.puts @pastel.public_send(color, "  #{icon} #{name}") + @pastel.dim(" → #{output}")
       end
 
       def error(message)
-        puts @pastel.red("✗ Error: #{message}")
+        $stdout.puts @pastel.red("✗ Error: #{message}")
       end
 
       def info(message)
-        puts @pastel.blue("ℹ #{message}")
+        $stdout.puts @pastel.blue("ℹ #{message}")
       end
 
       def table(headers, rows)
-        puts TTY::Table.new(header: headers, rows: rows).render
+        $stdout.puts TTY::Table.new(header: headers, rows: rows).render
       end
 
       private
@@ -222,13 +222,13 @@ module Forge
       end
 
       def run
-        puts @renderer.banner
+        $stdout.puts @renderer.banner
         @renderer.info("Workspace: #{runtime.workspace.root}")
         @renderer.info("Provider: #{current_provider.name} (#{current_provider.model})")
         @renderer.info("Type /help for commands. Ctrl+C to interrupt.\n")
 
         loop do
-          input = @prompt.readline(@prompt_message, interrupt: :exit)
+          input = @prompt.read_line(@prompt_message)
           break if input.nil?
 
           input = input.strip
@@ -243,7 +243,7 @@ module Forge
               break
             end
 
-            puts result[:result] if result[:result].is_a?(String)
+            $stdout.puts result[:result] if result[:result].is_a?(String)
             next
           end
 
@@ -313,7 +313,7 @@ module Forge
       private
 
       def prompt_message
-        "forge> "
+        "cruks> "
       end
 
       def run_agent(input)

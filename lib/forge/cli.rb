@@ -18,8 +18,11 @@ module Forge
         puts "cruks #{Forge::VERSION}"
       when "init"
         init_config
-      when "help", "-h", "--help", nil
+      when "help", "-h", "--help"
         print_help
+      when nil
+        # No subcommand → interactive TUI (cruks / cruks-s with only flags)
+        interactive([], opts)
       else
         interactive(args, opts)
       end
@@ -86,7 +89,7 @@ module Forge
 
     def init_config
       dest = Forge::CONFIG_DIR.join("config.toml")
-      example = Forge::ROOT.join("config", "forge.example.toml")
+      example = Forge::ROOT.join("config", "cruks.example.toml")
       if dest.exist?
         puts "Config already exists: #{dest}"
         return
@@ -103,7 +106,7 @@ module Forge
         Cruks v#{Forge::VERSION} — Local-first terminal coding agent (Ruby)
 
         Usage:
-          cruks / forge           Start interactive TUI session
+          cruks                   Start interactive TUI session
           cruks exec "task"       Run a single task (headless)
           cruks sessions          List saved sessions
           cruks init              Create default config

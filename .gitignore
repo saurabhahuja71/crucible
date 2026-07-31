@@ -4,4 +4,4 @@
 *.gem
 /.rspec_status
 /tmp/
-/.forge/
+/.cruks/

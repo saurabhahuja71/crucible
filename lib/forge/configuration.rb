@@ -22,7 +22,7 @@ module Forge
 
     def self.default_system_prompt
       <<~PROMPT.strip
-        You are Forge, an expert software engineering agent. You help users write, debug,
+        You are Cruks, an expert software engineering agent. You help users write, debug,
         refactor, and understand code. Use available tools to inspect the codebase, run
         commands, and make precise edits. Be concise, accurate, and safety-conscious.
         Prefer surgical changes over large rewrites. Always explain your reasoning.
@@ -67,7 +67,7 @@ module Forge
         "confirm_destructive" => true
       },
       "ssh" => {
-        "config_path" => "~/.config/forge/ssh_hosts.toml",
+        "config_path" => "~/.config/cruks/ssh_hosts.toml",
         "default_timeout" => 30,
         "allowed_commands" => default_allowed_commands
       },
@@ -77,7 +77,7 @@ module Forge
       },
       "logging" => {
         "level" => "info",
-        "audit_path" => "~/.local/share/forge/audit.log"
+        "audit_path" => "~/.local/share/cruks/audit.log"
       },
       "mcp" => {
         "servers" => []
@@ -93,7 +93,7 @@ module Forge
 
     def self.discover_config_path
       candidates = [
-        Pathname(Dir.pwd).join("forge.toml"),
+        Pathname(Dir.pwd).join("cruks.toml"),
         CONFIG_DIR.join("config.toml")
       ]
       candidates.find(&:exist?) || CONFIG_DIR.join("config.toml")

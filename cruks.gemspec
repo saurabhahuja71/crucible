@@ -3,10 +3,10 @@
 require_relative "lib/forge/version"
 
 Gem::Specification.new do |spec|
-  spec.name          = "forge"
+  spec.name          = "cruks"
   spec.version       = Forge::VERSION
-  spec.authors       = ["Forge Contributors"]
-  spec.email         = ["forge@example.com"]
+  spec.authors       = ["Cruks Contributors"]
+  spec.email         = ["cruks@example.com"]
 
   spec.summary       = "Local-first terminal coding agent"
   spec.description   = "Production-quality Ruby CLI coding agent with LLM providers, tools, SSH, and parallel execution"
@@ -17,10 +17,10 @@ Gem::Specification.new do |spec|
   spec.files = Dir.chdir(__dir__) do
   Dir.glob("{exe,lib}/**/*", File::FNM_DOTMATCH).select do |f|
       File.file?(f) && !f.end_with?(".gem")
-    end + %w[forge.gemspec README.md LICENSE config/cruks.sglang.toml scripts/cruks-sglang.sh]
+    end + %w[cruks.gemspec README.md LICENSE config/cruks.sglang.toml config/cruks.example.toml scripts/cruks-sglang.sh]
   end
   spec.bindir        = "exe"
-  spec.executables   = %w[forge cruks-s]
+  spec.executables   = %w[cruks cruks-s]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "faraday", "~> 2.9"

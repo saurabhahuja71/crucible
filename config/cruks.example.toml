@@ -30,12 +30,11 @@ timeout = 300
 [safety]
 sandbox_shell = true
 confirm_destructive = true
-# allowed_commands defaults to ~90 common dev commands; override to restrict further
+# allowed_commands defaults to ~120 common dev commands; override to restrict further
 
 [ssh]
-config_path = "~/.config/forge/ssh_hosts.toml"
+config_path = "~/.config/cruks/ssh_hosts.toml"
 default_timeout = 30
-# allowed_commands uses the same defaults as [safety]; override independently if needed
 
 [parallel]
 max_workers = 4
@@ -43,7 +42,7 @@ isolation = "thread"
 
 [logging]
 level = "info"
-audit_path = "~/.local/share/forge/audit.log"
+audit_path = "~/.local/share/cruks/audit.log"
 
 [mcp]
 servers = []

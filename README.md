@@ -1,13 +1,13 @@
-# Forge
+# Cruks
 
-**Forge** is a production-quality, local-first terminal coding agent written in Ruby. It provides an interactive TUI for AI-assisted software engineering with full tool calling, provider failover, SSH remote execution, parallel sub-agents, and a safety-first workspace model.
+**Cruks** is a production-quality, local-first terminal coding agent written in Ruby. It provides an interactive TUI for AI-assisted software engineering with full tool calling, provider failover, SSH remote execution, parallel sub-agents, and a safety-first workspace model.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLI / TUI Layer                         │
-│  forge (interactive)  │  forge exec  │  slash commands          │
+│  cruks (interactive)  │  cruks exec  │  slash commands          │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
@@ -50,11 +50,11 @@
 git clone https://github.com/user/dboper/cruks.git
 cd cruks
 bundle install
-bundle exec rake install   # installs `forge` and `cruks-s` to PATH
+bundle exec rake install   # installs `cruks` and `cruks-s` to PATH
 
 # Or build the gem
-gem build forge.gemspec
-gem install forge-0.1.0.gem
+gem build cruks.gemspec
+gem install cruks-0.1.0.gem
 ```
 
 ## Build & Run with SGLang (`cruks-s`)
@@ -95,14 +95,19 @@ sglang-tunnel
 ./scripts/cruks-sglang.sh
 ```
 
-### 4. Optional bash alias (like `forge-s`)
+### 4. Bash alias (like `pi-s` / `forge-s`)
 
 Add to `~/.bashrc`:
 
 ```bash
+source /scratch/sauahuja/gobin/goprojects/src/github.com/user/dboper/cruks/scripts/cruks-sglang.sh
+alias cruks-s='cruks-sglang'
+```
+
+Or one-liner without sourcing:
+
+```bash
 alias cruks-s='/scratch/sauahuja/gobin/goprojects/src/github.com/user/dboper/cruks/exe/cruks-s'
-# or after gem install:
-alias cruks-s='cruks-s'
 ```
 
 `cruks-s` will:
@@ -124,24 +129,24 @@ cruks-s
 
 ```bash
 # Create default config
-forge init
+cruks init
 
-# Edit ~/.config/forge/config.toml — set your API key
+# Edit ~/.config/cruks/config.toml — set your API key
 export OPENAI_API_KEY=sk-...
 
 # Interactive session
-forge
+cruks
 
 # Headless single task
-forge exec "list all Ruby files and summarize the project structure"
+cruks exec "list all Ruby files and summarize the project structure"
 
 # List saved sessions
-forge sessions
+cruks sessions
 ```
 
 ## Configuration
 
-Copy `config/forge.example.toml` to `~/.config/forge/config.toml` or place `forge.toml` in your project root.
+Copy `config/cruks.example.toml` to `~/.config/cruks/config.toml` or place `cruks.toml` in your project root.
 
 ```toml
 [providers]
@@ -211,12 +216,12 @@ Forge enforces a workspace trust model:
 1. **Path validation** — tools cannot access paths outside the workspace
 2. **Command allow-list** — local shell and SSH `remote_exec` validate against `safety.allowed_commands` and `ssh.allowed_commands` (~90 common dev commands by default: `docker`, `podman`, `systemctl`, `journalctl`, `ssh`, `sed`, `awk`, `curl`, `tar`, etc.)
 3. **Blocked patterns** — `sudo`, `rm -rf /`, pipe-to-shell, etc.
-4. **Audit logging** — all tool calls logged to `~/.local/share/forge/audit.log`
+4. **Audit logging** — all tool calls logged to `~/.local/share/cruks/audit.log`
 5. **Confirmation prompts** — destructive actions require approval (unless `/trust` + `/auto`)
 
 ## SSH Configuration
 
-Add hosts to `~/.config/forge/ssh_hosts.toml`:
+Add hosts to `~/.config/cruks/ssh_hosts.toml`:
 
 ```toml
 [[hosts]]
@@ -229,7 +234,7 @@ key_path = "~/.ssh/id_rsa"
 
 ## Skills / Plugins
 
-Place Ruby skill files in `~/.local/share/forge/skills/` or `.forge/skills/`:
+Place Ruby skill files in `~/.local/share/cruks/skills/` or `.cruks/skills/`:
 
 ```ruby
 # my_skill.rb
@@ -251,9 +256,10 @@ end
 ## Project Structure
 
 ```
-forge/
-├── exe/forge                 # CLI executable
-├── config/forge.example.toml # Example configuration
+cruks/
+├── exe/cruks                 # CLI executable
+├── exe/cruks-s               # SGLang shortcut
+├── config/cruks.example.toml # Example configuration
 ├── lib/forge/
 │   ├── agent/                # Agent loop, session, context
 │   ├── providers/            # LLM provider adapters
@@ -277,7 +283,7 @@ forge/
 ```bash
 bundle install
 bundle exec rspec
-bundle exec forge --help
+bundle exec cruks --help
 ```
 
 ## License
