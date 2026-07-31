@@ -228,7 +228,7 @@ module Forge
         @renderer.info("Type /help for commands. Ctrl+C to interrupt.\n")
 
         loop do
-          input = @prompt.read_line(@prompt_message)
+          input = @prompt.read_line(prompt_message)
           break if input.nil?
 
           input = input.strip
