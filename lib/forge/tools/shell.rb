@@ -26,7 +26,7 @@ module Forge
 
         @sandbox.validate_command!(command)
 
-        stdout, stderr, status = Open3.capture3(command, chdir: @workspace.root.to_s)
+        stdout, stderr, status = Open3.capture3("/bin/sh", "-c", command, chdir: @workspace.root.to_s)
         output = [stdout, stderr].reject(&:empty?).join("\n---\n")
         output = "(no output)" if output.empty?
 

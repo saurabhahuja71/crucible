@@ -68,8 +68,8 @@ module Forge
         raise NotImplementedError
       end
 
-      def resolve_path(path)
-        @workspace.resolve(path)
+      def resolve_path(path, write: false)
+        @workspace.resolve(path, write: write)
       end
 
       def audit(event, details)

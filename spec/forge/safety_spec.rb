@@ -14,6 +14,32 @@ RSpec.describe Forge::Safety::Workspace do
   it "rejects paths that escape workspace" do
     expect { workspace.resolve("../../../etc/passwd") }.to raise_error(Forge::SafetyError)
   end
+
+  it "rejects home paths when untrusted" do
+    expect { workspace.resolve("~/.bashrc") }.to raise_error(Forge::SafetyError)
+  end
+end
+
+RSpec.describe Forge::Safety::Workspace do
+  let(:config) do
+    cfg = Forge::Configuration.new("/nonexistent/config.toml")
+    cfg.data["workspace"]["trust"] = true
+    cfg
+  end
+  let(:workspace) { described_class.new(config, cwd: Dir.mktmpdir) }
+
+  it "expands tilde paths within home when trusted" do
+    path = workspace.resolve("~/.bashrc")
+    expect(path.to_s).to eq(File.expand_path("~/.bashrc"))
+  end
+
+  it "allows reading home directory files when trusted" do
+    bashrc = File.expand_path("~/.bashrc")
+    skip "no ~/.bashrc" unless File.file?(bashrc)
+
+    path = workspace.resolve("~/.bashrc")
+    expect(path.to_s).to eq(bashrc)
+  end
 end
 
 RSpec.describe Forge::Safety::Sandbox do

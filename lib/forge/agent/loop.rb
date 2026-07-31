@@ -131,10 +131,12 @@ module Forge
             @session.add_message(response.to_message)
             execute_tool_calls(response.tool_calls)
           else
-            @session.add_message({ role: "assistant", content: response.content })
-            emit(:assistant_message, content: response.content)
+            content = response.content.to_s
+            content = "(no response from model)" if content.empty?
+            @session.add_message({ role: "assistant", content: content })
+            emit(:assistant_message, content: content)
             @session.save!
-            return response.content
+            return content
           end
         end
       end
@@ -163,7 +165,7 @@ module Forge
           result = @tool_registry.execute(tc[:name], tc[:arguments])
 
           @hooks.run(:post_tool, tool: tc[:name], result: result)
-          emit(:tool_end, name: tc[:name], output: result.to_s[0, 200], success: result.success)
+          emit(:tool_end, name: tc[:name], output: result.to_s, success: result.success)
 
           @session.add_message({
                                  role: "tool",

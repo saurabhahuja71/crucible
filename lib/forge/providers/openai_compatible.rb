@@ -128,7 +128,9 @@ module Forge
       end
 
       def finalize_tool_calls(acc)
-        acc.sort_by(&:first).map do |_idx, tc|
+        acc.sort_by(&:first).filter_map do |_idx, tc|
+          next if tc[:name].nil? || tc[:name].empty?
+
           {
             id: tc[:id] || SecureRandom.uuid,
             name: tc[:name],

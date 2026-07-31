@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "pastel"
+require "reline"
 require "tty-box"
-require "tty-prompt"
 require "tty-spinner"
 require "tty-table"
 
@@ -23,13 +23,15 @@ module Forge
       end
 
       def assistant(content)
-        $stdout.puts @pastel.green("▸ Assistant:")
+        $stdout.puts @pastel.green.bold("▸ Assistant:")
+        # Default terminal foreground (same contrast as user input) — never dim.
         $stdout.puts wrap(content)
         $stdout.puts
       end
 
       def stream_chunk(chunk)
-        $stdout.print @pastel.dim(chunk)
+        # Stream answers in normal terminal color so they match prompt/question contrast.
+        $stdout.print chunk
         $stdout.flush
       end
 
@@ -40,13 +42,20 @@ module Forge
 
       def tool_start(name, arguments)
         args_preview = arguments.is_a?(Hash) ? arguments.inspect[0, 80] : arguments.to_s[0, 80]
-        $stdout.puts @pastel.yellow("  ⚙ #{name}") + @pastel.dim(" #{args_preview}")
+        $stdout.puts @pastel.yellow("  ⚙ #{name}") + " #{args_preview}"
       end
 
       def tool_end(name, output, success:)
         icon = success ? "✓" : "✗"
         color = success ? :cyan : :red
-        $stdout.puts @pastel.public_send(color, "  #{icon} #{name}") + @pastel.dim(" → #{output}")
+        text = output.to_s
+        preview_limit = 4000
+        if text.length > preview_limit
+          text = "#{text[0, preview_limit]}\n… (#{text.length - preview_limit} more chars truncated in TUI)"
+        end
+        $stdout.puts @pastel.public_send(color, "  #{icon} #{name}")
+        # Tool body in default color (readable); indent only for hierarchy.
+        text.each_line { |line| $stdout.puts "    #{line.chomp}" }
       end
 
       def error(message)
@@ -117,7 +126,7 @@ module Forge
             /skills            List loaded skills
             /trust             Trust current workspace
             /auto [on|off]     Toggle auto-approve mode
-            /exit              Exit Forge
+            /exit              Exit Cruks
         HELP
       end
 
@@ -216,7 +225,6 @@ module Forge
         @runtime = runtime
         @renderer = Renderer.new
         @slash = SlashCommands.new(self)
-        @prompt = TTY::Prompt.new
         @debug_mode = false
         @auto_approve = runtime.workspace.auto_approve
       end
@@ -228,7 +236,7 @@ module Forge
         @renderer.info("Type /help for commands. Ctrl+C to interrupt.\n")
 
         loop do
-          input = @prompt.read_line(prompt_message)
+          input = read_user_input
           break if input.nil?
 
           input = input.strip
@@ -249,10 +257,15 @@ module Forge
 
           run_agent(input)
         rescue Interrupt
-          @renderer.info("\nInterrupted. Type /exit to quit.")
+          $stdout.puts
+          @renderer.info("Interrupted. Type /exit to quit.")
         rescue StandardError => e
           @renderer.error("#{e.class}: #{e.message}")
-          Forge.logger.error(e.full_message) if debug_mode?
+          if debug_mode? || ENV["CRUKS_DEBUG"]
+            $stderr.puts e.full_message
+          else
+            Forge.logger.error(e.full_message)
+          end
         end
       end
 
@@ -316,21 +329,41 @@ module Forge
         "cruks> "
       end
 
+      def read_user_input
+        if $stdin.tty?
+          Reline.readline(prompt_message, true)
+        else
+          $stdout.print(prompt_message)
+          $stdin.gets
+        end
+      end
+
       def run_agent(input)
         streaming = false
+        streamed_content = +""
         runtime.agent_loop.on_event = lambda do |event, data|
           case event
           when :content
-            @renderer.stream_chunk(data) unless streaming
+            chunk = data.to_s
+            next if chunk.empty?
+
+            streamed_content << chunk
+            @renderer.stream_chunk(chunk)
             streaming = true
           when :assistant_message
+            content = data[:content].to_s
             if streaming
               @renderer.stream_end
               streaming = false
-            else
-              @renderer.assistant(data[:content])
+            elsif !content.empty?
+              @renderer.assistant(content)
             end
           when :tool_start
+            if streaming
+              @renderer.stream_end
+              streaming = false
+              streamed_content.clear
+            end
             @renderer.tool_start(data[:name], data[:arguments])
           when :tool_end
             @renderer.tool_end(data[:name], data[:output], success: data[:success])

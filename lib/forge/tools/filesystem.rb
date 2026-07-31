@@ -1,17 +1,23 @@
 # frozen_string_literal: true
 
+require "open3"
+require "shellwords"
+
 module Forge
   module Tools
     class ReadFile < Base
+      # Default page size so huge configs (~/.bashrc) do not flood the agent context.
+      DEFAULT_LIMIT = 200
+
       def name = "read_file"
-      def description = "Read contents of a file. Optionally specify offset and limit for large files."
+      def description = "Read a file with line numbers. Prefer search_files for keyword lookups in large files (e.g. aliases in ~/.bashrc). Paths: workspace-relative, absolute, or ~/..."
       def parameters
         {
           type: "object",
           properties: {
-            path: { type: "string", description: "File path relative to workspace" },
-            offset: { type: "integer", description: "Line number to start reading from (1-based)" },
-            limit: { type: "integer", description: "Maximum number of lines to read" }
+            path: { type: "string", description: "File path (workspace-relative, absolute, or ~/...)" },
+            offset: { type: "integer", description: "Line number to start reading from (1-based, default 1)" },
+            limit: { type: "integer", description: "Max lines to return (default #{DEFAULT_LIMIT}; raise for more)" }
           },
           required: ["path"]
         }
@@ -24,13 +30,21 @@ module Forge
         raise ToolError, "Not a file: #{path}" unless path.file?
 
         lines = path.readlines
+        total = lines.size
         offset = [(args["offset"] || 1).to_i - 1, 0].max
-        limit = args["limit"]&.to_i
+        # Explicit limit; default page when caller omits limit.
+        limit = args.key?("limit") ? args["limit"]&.to_i : DEFAULT_LIMIT
+        limit = DEFAULT_LIMIT if limit.nil? || limit <= 0
 
-        selected = limit ? lines[offset, limit] : lines[offset..]
+        selected = lines[offset, limit] || []
         numbered = selected.each_with_index.map { |l, i| "#{offset + i + 1}|#{l}" }.join
+        end_line = offset + selected.size
+        header = "file=#{path} lines=#{total} showing=#{offset + 1}-#{end_line}"
+        if end_line < total
+          header += " (truncated; use offset=#{end_line + 1} or search_files for the rest)"
+        end
 
-        Result.new(output: numbered)
+        Result.new(output: "#{header}\n#{numbered}")
       end
     end
 
@@ -51,7 +65,7 @@ module Forge
       protected
 
       def execute(args)
-        path = resolve_path(args["path"])
+        path = resolve_path(args["path"], write: true)
         @sandbox.validate_path_access!(path)
         path.parent.mkpath
         path.write(args["content"])
@@ -77,7 +91,7 @@ module Forge
       protected
 
       def execute(args)
-        path = resolve_path(args["path"])
+        path = resolve_path(args["path"], write: true)
         raise ToolError, "Not a file: #{path}" unless path.file?
 
         content = path.read
@@ -124,13 +138,13 @@ module Forge
 
     class SearchFiles < Base
       def name = "search_files"
-      def description = "Search file contents using ripgrep (rg) or grep fallback."
+      def description = "Search file contents with ripgrep/grep (regex). Best for finding aliases, hosts, config keys. Path may be a file or directory (workspace-relative, absolute, or ~/..., e.g. path=~/.bashrc pattern=podman9)."
       def parameters
         {
           type: "object",
           properties: {
             pattern: { type: "string", description: "Search pattern (regex)" },
-            path: { type: "string", description: "Directory or file to search" },
+            path: { type: "string", description: "Directory or file to search (default: workspace root). Examples: ~/.bashrc, ~/.ssh/config" },
             glob: { type: "string", description: "File glob filter (e.g. *.rb)" }
           },
           required: ["pattern"]
@@ -144,20 +158,29 @@ module Forge
         pattern = args["pattern"]
         glob = args["glob"]
 
-        cmd = if system("which rg > /dev/null 2>&1")
-                parts = ["rg", "-n", "--color=never", Shellwords.escape(pattern), Shellwords.escape(search_path.to_s)]
-                parts += ["-g", Shellwords.escape(glob)] if glob
-                parts.join(" ")
-              else
-                "grep -rn #{Shellwords.escape(pattern)} #{Shellwords.escape(search_path.to_s)}"
-              end
+        stdout, stderr, status = if rg_available?
+                                   argv = ["rg", "-n", "--color=never", pattern, search_path.to_s]
+                                   argv += ["-g", glob] if glob
+                                   Open3.capture3(*argv)
+                                 else
+                                   Open3.capture3("grep", "-rn", pattern, search_path.to_s)
+                                 end
 
-        output = `#{cmd} 2>&1`
-        exit_code = $CHILD_STATUS.exitstatus
-        Result.new(output: output.empty? ? "No matches found" : output, success: exit_code <= 1)
+        output = [stdout, stderr].reject(&:empty?).join("\n")
+        exit_code = status&.exitstatus
+        success = exit_code.nil? ? false : exit_code <= 1
+
+        Result.new(
+          output: output.empty? ? "No matches found" : output,
+          success: success,
+          error: (success ? nil : "search failed (exit #{exit_code})")
+        )
+      end
+
+      def rg_available?
+        @rg_available = system("which rg > /dev/null 2>&1") if @rg_available.nil?
+        @rg_available
       end
     end
   end
 end
-
-require "shellwords"

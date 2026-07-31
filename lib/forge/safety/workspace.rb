@@ -13,18 +13,29 @@ module Forge
         @auto_approve = config.fetch("workspace.auto_approve", false)
       end
 
-      def resolve(path)
-        resolved = if path.to_s.start_with?("/")
-                     Pathname(path).expand_path
-                   else
-                     (@root + path).expand_path
-                   end
+      def resolve(path, write: false)
+        resolved = normalize_path(path)
 
-        unless within_workspace?(resolved)
-          raise SafetyError, "Path escapes workspace: #{path} -> #{resolved}"
+        return resolved if within_workspace?(resolved)
+        return resolved if !write && @trusted && within_home?(resolved)
+
+        raise SafetyError, "Path escapes workspace: #{path} -> #{resolved}"
+      end
+
+      def normalize_path(path)
+        str = path.to_s
+        if str.start_with?("~/") || str == "~"
+          Pathname(File.expand_path(str))
+        elsif str.start_with?("/")
+          Pathname(str).expand_path
+        else
+          (@root + str).expand_path
         end
+      end
 
-        resolved
+      def within_home?(path)
+        home = Pathname(Dir.home).expand_path.to_s
+        Pathname(path).expand_path.to_s.start_with?(home)
       end
 
       def within_workspace?(path)

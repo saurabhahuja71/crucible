@@ -2,6 +2,7 @@
 
 require "logger"
 require "pathname"
+require "time"
 
 module Forge
   class Error < StandardError; end

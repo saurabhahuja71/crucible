@@ -8,13 +8,13 @@ module Forge
   class Configuration
     def self.default_allowed_commands
       %w[
-        awk basename bundle bzip2 cal cargo cat chmod chown cmp comm cp curl cut
-        date df diff dig dirname docker du env file find free gcc g++ gem git go
-        groups gunzip gzip head helm hostname id ifconfig ip irb java javac
+        awk basename bash bundle bzip2 cal cargo cat chmod chown cmp comm cp curl cut
+        date df diff dig dirname docker du egrep env fgrep file find free gcc g++ gem git go
+        grep groups gunzip gzip head helm hostname id ifconfig ip irb java javac
         journalctl kill killall kubectl ld less ln locate ls lsblk lsof make mkdir
         mount mv mvn nano nc netstat nice ninja node nohup npm npx pgrep ping
         pip pip3 podman printf ps pkill python python3 rake readlink realpath rg rm
-        rmdir rsync ruby rustc rustup scp sed sftp sort source ss ssh stat systemctl
+        rmdir rsync ruby rustc rustup scp sed sftp sh sort source ss ssh stat systemctl
         tail tar tee test timeout top touch traceroute tr type umount uniq uname unzip
         uptime watch wc wget whereis which whoami xargs xz yarn zip
       ].freeze
@@ -26,6 +26,8 @@ module Forge
         refactor, and understand code. Use available tools to inspect the codebase, run
         commands, and make precise edits. Be concise, accurate, and safety-conscious.
         Prefer surgical changes over large rewrites. Always explain your reasoning.
+        For keyword lookups in large configs (aliases, hosts, env vars), use search_files
+        or shell rg/grep — do not dump entire ~/.bashrc via read_file.
       PROMPT
     end
 
