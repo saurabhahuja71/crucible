@@ -91,7 +91,7 @@ module Forge
         mouse = @mouse_enabled ? "mouse:on" : "mouse:off"
         $stdout.puts @status.render(provider: provider, model: model, mode: mode,
                                     workspace: @workspace || ".", todos: todos)
-        $stdout.puts @theme.dim("  MODE: #{mode.to_s.upcase} · /mode ask|allow|plan · /permissions toggle · /help · #{mouse}")
+        $stdout.puts @theme.dim("  MODE: #{mode.to_s.upcase} · Ctrl-T permissions · Ctrl-Y todos · /help · #{mouse}")
       end
 
       def workspace=(path)
@@ -227,7 +227,7 @@ module Forge
             /model [name]      Show or switch provider/model
             /mode ask|allow|plan  Change permission mode
             /theme dark|light  Change display theme preference
-            /todo [add|done|clear]  Manage the live todo list
+            /todo [add|done|clear|on|off|toggle]  Manage/show the live todo list
             /scroll up|down|top|bottom  Scroll long output
             /mouse on|off      Toggle terminal mouse reporting
             /status            Show current session status
@@ -248,6 +248,8 @@ module Forge
             /trust             Trust current workspace
             /auto [on|off]     Toggle auto-approve mode
             /permissions [ask|allow|plan|toggle]  Permission controls/list approvals
+            Ctrl-T              Toggle ASK/ALLOW permission mode
+            Ctrl-Y              Toggle todo panel visibility
             /new               Start a fresh session
             /exit              Exit Cruks
         HELP
@@ -290,6 +292,9 @@ module Forge
 
         parts = args.split(/\s+/, 2)
         case parts.first
+        when "on", "off", "toggle"
+          @app.set_todo_visibility(parts.first)
+          "Todo panel: #{@app.todo_visible? ? 'on' : 'off'}"
         when "add"
           return "Usage: /todo add description" if parts[1].to_s.strip.empty?
 
@@ -299,7 +304,7 @@ module Forge
 
           @app.complete_todo(parts[1]); @app.todo_summary
         when "clear" then @app.clear_todos; "Todos cleared"
-        else "Usage: /todo [add description|done ID|clear]"
+        else "Usage: /todo [add description|done ID|clear|on|off|toggle]"
         end
       end
 
@@ -460,6 +465,8 @@ module Forge
         @debug_mode = false
         @auto_approve = runtime.workspace.auto_approve
         @mouse_enabled = false
+        @todo_visible = true
+        install_keybindings
         @renderer.workspace = runtime.workspace.root
         runtime.permissions.handler = method(:request_permission)
       end
@@ -473,7 +480,7 @@ module Forge
 
         loop do
           @renderer.footer(provider: current_provider.name, model: current_provider.model,
-                           mode: permission_mode, todos: Agent::TODO_STORE.open_count)
+                           mode: permission_mode, todos: (@todo_visible ? Agent::TODO_STORE.open_count : "off"))
           input = read_user_input
           break if input.nil?
 
@@ -549,7 +556,21 @@ module Forge
       end
 
       def todo_summary
+        return "Todo panel is off (use /todo on or Ctrl-Y)" unless @todo_visible
+
         Agent::TODO_STORE.format
+      end
+
+      def set_todo_visibility(value)
+        @todo_visible = case value.to_s.downcase
+                        when "on" then true
+                        when "off" then false
+                        else !@todo_visible
+                        end
+      end
+
+      def todo_visible?
+        @todo_visible
       end
 
       def status_summary
@@ -638,6 +659,27 @@ module Forge
 
       def scroll_output(direction)
         @renderer.scroll(direction)
+      end
+
+      def install_keybindings
+        return unless Reline.respond_to?(:core)
+
+        unless Reline::LineEditor.method_defined?(:cruks_toggle_permission)
+          Reline::LineEditor.class_eval do
+            def cruks_toggle_permission(_key = nil)
+              set_current_line("/permissions toggle", "/permissions toggle".bytesize)
+            end
+
+            def cruks_toggle_todos(_key = nil)
+              set_current_line("/todo toggle", "/todo toggle".bytesize)
+            end
+          end
+        end
+        config = Reline.core.config
+        %i[emacs vi_insert vi_command].each do |keymap|
+          config.add_default_key_binding_by_keymap(keymap, [20], :cruks_toggle_permission)
+          config.add_default_key_binding_by_keymap(keymap, [25], :cruks_toggle_todos)
+        end
       end
 
       def permission_approvals

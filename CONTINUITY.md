@@ -10,6 +10,7 @@
 - Pre-existing working-tree items `.gitignore`, `lib/forge/cli.rb`, and `hi` were preserved; review staged scope before push.
 - TUI follow-up added visible status/footer shortcuts, `/mouse on|off`, permission toggles, richer todo commands, and transcript scrolling via `/scroll up|down|top|bottom`.
 - Professional UI upgrade is in progress in `lib/forge/ui/terminal.rb` and `lib/forge/tui/app.rb`: status/activity/tool/Markdown/completion components, `/status`, `/doctor`, `/changes`, `/diff`, `/logs`, `/history`, `/sessions`, `--prompt`, `--json`, `--debug`, `--verbose`, and `--no-color` are implemented and focused UI tests are present.
+- Added Reline key bindings: Ctrl-T toggles ASK/ALLOW via `/permissions toggle`, Ctrl-Y toggles todo-panel visibility via `/todo toggle`; removed the full cwd from the compact status bar.
 
 - Ruby local-first coding agent in `lib/forge/`, exposed as the `cruks` gem and CLI.
 - Existing architecture includes OpenAI-compatible/Ollama providers with failover, sessions, skills, SSH, parallel agents, MCP scaffolding, filesystem/shell/git tools, safety validation, audit logging, and a terminal UI.

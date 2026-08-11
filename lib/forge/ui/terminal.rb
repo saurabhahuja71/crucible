@@ -28,15 +28,14 @@ module Forge
         @width = width
       end
 
-      def render(provider:, model:, mode:, workspace:, todos:, context: nil)
+      def render(provider:, model:, mode:, workspace: nil, todos:, context: nil)
         width = @width || terminal_width
-        path = shorten(workspace.to_s, [width / 3, 18].max)
         model = shorten(model.to_s, [width / 3, 16].max)
         context_text = context ? " #{context}" : ""
-        line = "#{model} │ #{path} │ #{mode.to_s.upcase} │ #{todos} open#{context_text}"
+        line = "#{model} │ MODE:#{mode.to_s.upcase} │ todos:#{todos}#{context_text}"
         inner = " Cruks │ #{line} "
         if inner.length > width - 2
-          inner = " Cruks │ #{model} │ #{mode.to_s.upcase} │ #{path} "
+          inner = " Cruks │ #{model} │ #{mode.to_s.upcase} │ t:#{todos}#{context_text} "
           inner = inner[0, width - 2]
         end
         top = "╭─#{inner.ljust([width - 3, 1].max, '─')}╮"
