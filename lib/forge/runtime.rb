@@ -7,6 +7,8 @@ module Forge
 
     def initialize(config_path: nil, cwd: Dir.pwd, model: nil, trust: false)
       @config = Configuration.load(config_path)
+      log_level = @config.fetch("logging.level", "info").to_s.upcase
+      Forge.logger.level = Logger.const_get(log_level)
       apply_model_override!(model) if model
       @workspace = Safety::Workspace.new(@config, cwd: cwd)
       @workspace.instance_variable_set(:@trusted, true) if trust

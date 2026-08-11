@@ -1,6 +1,5 @@
-# Cruks (Ruby Forge) + SGLang on local tunnel :30000
-# Use with: cruks-sglang  (alias: cruks-s)
-# Prereq: sglang-up  OR  sglang-tunnel (if server already running)
+# Cruks + Ollama local server
+# Use with: cruks-s1
 
 [workspace]
 trust = true
@@ -13,14 +12,14 @@ max_tokens = 4096
 system_prompt = "You are Cruks, a precise coding agent. Use tools to inspect and verify work. For shell aliases such as podman9, use ssh_execute with the alias host after inspecting bashrc; never fall back to shell_execute SSH. After a tool failure, do not repeat the same command; diagnose the exact error and make one evidence-based correction. For a request to start Podman containers on podman9, run one ssh_execute call with sudo podman ps -a --format first; if every container is Up, report that no start action is needed and do not inspect systemd units. Use add_todo, complete_todo, update_todo, and list_todos for multi-step work."
 
 [providers]
-primary = "sglang"
+primary = "ollama"
 failover = []
 
-[providers.sglang]
+[providers.ollama]
 type = "openai_compatible"
-api_key = "sglang"
-base_url = "http://127.0.0.1:30000/v1"
-model = "qwen2.5-coder-32b-q4_k_m.gguf"
+api_key = ""
+base_url = "http://127.0.0.1:11435/v1"
+model = "darwin-35b-a3b-opus:q4_k_m"
 temperature = 0.2
 max_tokens = 4096
 timeout = 300

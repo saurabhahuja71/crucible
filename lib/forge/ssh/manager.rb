@@ -2,19 +2,21 @@
 
 require "net/ssh"
 require "toml-rb"
+require "open3"
 
 module Forge
   module SSH
     class Host
-      attr_reader :name, :host, :user, :port, :key_path, :password
+      attr_reader :name, :host, :user, :port, :key_path, :password, :proxy_jump
 
-      def initialize(name:, host:, user: nil, port: 22, key_path: nil, password: nil)
+      def initialize(name:, host:, user: nil, port: 22, key_path: nil, password: nil, proxy_jump: nil)
         @name = name
         @host = host
         @user = user || ENV["USER"]
         @port = port
         @key_path = key_path
         @password = password
+        @proxy_jump = proxy_jump
       end
 
       def to_h
@@ -78,6 +80,32 @@ module Forge
       end
     end
 
+    class SystemConnection
+      def initialize(host_config)
+        @host = host_config
+      end
+
+      def connect!
+        self
+      end
+
+      def exec(command)
+        argv = ["ssh", "-J", @host.proxy_jump, "-o", "BatchMode=yes", "#{@host.user}@#{@host.host}", command]
+        stdout, stderr, status = Open3.capture3(*argv)
+        output = [stdout, stderr].reject(&:empty?).join
+        raise Error, "SSH command failed (#{status.exitstatus}): #{output}" unless status.success?
+
+        output
+      end
+
+      def read_file(remote_path)
+        path = remote_path.to_s.sub(/\A~(?=\/|$)/, "/home/#{@host.user}")
+        exec("cat #{Shellwords.escape(path)}")
+      end
+
+      def close; end
+    end
+
     class Manager
       def initialize(config)
         @config = config
@@ -102,7 +130,11 @@ module Forge
         raise Error, "Unknown SSH host: #{name}" unless host
 
         @mutex.synchronize do
-          @connections[name] ||= Connection.new(host)
+          @connections[name] ||= if host.proxy_jump
+                                   SystemConnection.new(host)
+                                 else
+                                   Connection.new(host)
+                                 end
         end
         @connections[name].connect!
       end
@@ -113,7 +145,8 @@ module Forge
       end
 
       def remote_exec(name, command)
-        @command_validator.validate!(command)
+        validated_command = command.sub(/\Asudo\s+(?:-n\s+)?/, "")
+        @command_validator.validate!(validated_command)
         connection(name).exec(command)
       end
 
@@ -145,10 +178,8 @@ module Forge
 
       def load_hosts
         path = config_path
-        return {} unless path.exist?
-
-        data = TomlRB.load_file(path.to_s)
-        Array(data["hosts"]).each_with_object({}) do |h, acc|
+        data = path.exist? ? TomlRB.load_file(path.to_s) : {}
+        hosts = Array(data["hosts"]).each_with_object({}) do |h, acc|
           host = Host.new(
             name: h["name"],
             host: h["host"],
@@ -159,7 +190,27 @@ module Forge
           )
           acc[host.name] = host
         end
+        hosts.merge!(load_bash_alias_hosts)
+        hosts
       rescue TomlRB::ParseError
+        {}
+      end
+
+      def load_bash_alias_hosts
+        path = Pathname(Dir.home).join(".bashrc")
+        return {} unless path.file?
+
+        path.readlines.filter_map do |line|
+          match = line.match(/^\s*alias\s+([\w-]+)=['"]ssh\s+-J\s+([^\s'"]+)\s+([^'"]+)['"]\s*$/)
+          next unless match
+
+          name, jump, destination = match.captures
+          user, host = destination.split("@", 2)
+          next unless host
+
+          [name, Host.new(name: name, host: host, user: user, proxy_jump: jump)]
+        end.to_h
+      rescue SystemCallError
         {}
       end
 

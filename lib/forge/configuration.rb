@@ -8,7 +8,7 @@ module Forge
   class Configuration
     def self.default_allowed_commands
       %w[
-        awk basename bash bundle bzip2 cal cargo cat chmod chown cmp comm cp curl cut
+        awk basename bash bundle bzip2 cal cargo cat chmod chown cmp comm cp curl cut echo
         date df diff dig dirname docker du egrep env fgrep file find free gcc g++ gem git go
         grep groups gunzip gzip head helm hostname id ifconfig ip irb java javac
         journalctl kill killall kubectl ld less ln locate ls lsblk lsof make mkdir
@@ -29,6 +29,14 @@ module Forge
         For multi-step work, use add_todo, complete_todo, update_todo, and list_todos.
         In plan mode, describe intended changes without using capability tools.
         Verify important claims with tool output before reporting success.
+        When a user gives a shell alias such as podman9, use ssh_execute with that
+        host name after inspecting the alias. Do not fall back to shell_execute SSH.
+        After a tool failure, do not repeat the same command; diagnose the exact
+        error, make one evidence-based correction, or report the blocker.
+        For a request to start Podman containers on podman9, use one ssh_execute
+        call with `sudo podman ps -a --format` first. If every container is Up,
+        report that no start action is needed; do not inspect systemd units or
+        healthcheck services.
         For keyword lookups in large configs (aliases, hosts, env vars), use search_files
         or shell rg/grep — do not dump entire ~/.bashrc via read_file.
       PROMPT

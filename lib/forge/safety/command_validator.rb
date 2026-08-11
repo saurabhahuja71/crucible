@@ -5,7 +5,7 @@ module Forge
     class CommandValidator
       BLOCKED_PATTERNS = [
         /\brm\s+-rf\s+\//,
-        /\bsudo\b/,
+        /(?:\A|[;&|])\s*sudo\b/,
         /\bmkfs\b/,
         /\bdd\s+if=/,
         />\s*\/dev\/sd/,

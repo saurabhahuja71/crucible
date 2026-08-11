@@ -41,21 +41,15 @@ module Forge
       end
 
       def tool_start(name, arguments)
-        args_preview = arguments.is_a?(Hash) ? arguments.inspect[0, 80] : arguments.to_s[0, 80]
-        $stdout.puts @pastel.yellow("  ⚙ #{name}") + " #{args_preview}"
+        # Keep interactive sessions readable; successful tool details remain
+        # in the audit/session data and the final assistant response.
+        @active_tool = name
       end
 
       def tool_end(name, output, success:)
-        icon = success ? "✓" : "✗"
-        color = success ? :cyan : :red
-        text = output.to_s
-        preview_limit = 4000
-        if text.length > preview_limit
-          text = "#{text[0, preview_limit]}\n… (#{text.length - preview_limit} more chars truncated in TUI)"
-        end
-        $stdout.puts @pastel.public_send(color, "  #{icon} #{name}")
-        # Tool body in default color (readable); indent only for hierarchy.
-        text.each_line { |line| $stdout.puts "    #{line.chomp}" }
+        return if success
+
+        $stdout.puts @pastel.red("  ✗ #{name}: #{output.to_s.lines.first.to_s.strip[0, 240]}")
       end
 
       def error(message)
@@ -145,6 +139,7 @@ module Forge
       def cmd_model(args)
         if args && !args.empty?
           name = args.split.first
+          return "'#{name}' is a permission mode; use /mode #{name}" if %w[ask allow plan].include?(name)
           if @app.provider_names.include?(name)
             @app.switch_provider(name)
           else
@@ -294,7 +289,8 @@ module Forge
         $stdout.puts @renderer.banner
         @renderer.info("Workspace: #{runtime.workspace.root}")
         @renderer.info("Provider: #{current_provider.name} (#{current_provider.model})")
-        @renderer.info("Type /help for commands. Ctrl+C to interrupt.\n")
+        @renderer.info("Shortcuts: /help commands · /mode ask|allow|plan permissions · /todo live tasks · /model model · /new session")
+        @renderer.info("Type /help for the full command and tool reference. Ctrl+C to interrupt.\n")
 
         loop do
           input = read_user_input

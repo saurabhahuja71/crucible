@@ -115,6 +115,11 @@ alias cruks-s='/scratch/sauahuja/gobin/goprojects/src/github.com/user/dboper/cru
 2. Auto-detect the live model from `/v1/models`
 3. Launch with `config/cruks.sglang.toml`, `--trust`, and `--model <id>`
 
+Backend shortcuts:
+
+- `cruks-s1` sources the dedicated Ollama helper, warms the S1 model, and uses the `:11435` tunnel.
+- `cruks-s2` uses the dedicated SGLang-2 helper, Darwin tool-call settings, and the `:30002` local tunnel.
+
 Config: `config/cruks.sglang.toml` — points at `http://127.0.0.1:30000/v1`, provider `sglang`, API key `sglang`.
 
 Override paths:
@@ -177,6 +182,10 @@ Any OpenAI-compatible API works out of the box:
 Provider failover is automatic: if the primary fails, Forge tries each provider in the `failover` list.
 
 ## Slash Commands
+
+The interactive launcher prints the command shortcuts at startup. The most useful
+ones are `/help`, `/mode ask|allow|plan`, `/todo`, `/model`, `/permissions`, and
+`/new`; these work identically through the S1 Ollama and S2 SGLang launchers.
 
 | Command | Description |
 |---------|-------------|
