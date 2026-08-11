@@ -26,6 +26,9 @@ module Forge
         refactor, and understand code. Use available tools to inspect the codebase, run
         commands, and make precise edits. Be concise, accurate, and safety-conscious.
         Prefer surgical changes over large rewrites. Always explain your reasoning.
+        For multi-step work, use add_todo, complete_todo, update_todo, and list_todos.
+        In plan mode, describe intended changes without using capability tools.
+        Verify important claims with tool output before reporting success.
         For keyword lookups in large configs (aliases, hosts, env vars), use search_files
         or shell rg/grep — do not dump entire ~/.bashrc via read_file.
       PROMPT
@@ -36,6 +39,11 @@ module Forge
         "trust" => false,
         "auto_approve" => false
       },
+      "permission_mode" => "ask",
+      "permissions" => {
+        "path" => "~/.local/share/cruks/permissions.json"
+      },
+      "theme" => "dark",
       "agent" => {
         "max_turns" => 50,
         "summarize_after_messages" => 40,

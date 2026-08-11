@@ -78,8 +78,9 @@ module Forge
     end
 
     class Registry
-      def initialize(tools)
+      def initialize(tools, permissions: nil)
         @tools = tools.each_with_object({}) { |t, h| h[t.name] = t }
+        @permissions = permissions
       end
 
       def schemas
@@ -89,6 +90,8 @@ module Forge
       def execute(name, arguments)
         tool = @tools[name]
         raise ToolError, "Unknown tool: #{name}" unless tool
+
+        @permissions&.authorize!(name, arguments)
 
         tool.call(arguments)
       end

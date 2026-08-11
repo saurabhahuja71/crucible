@@ -46,3 +46,9 @@ audit_path = "~/.local/share/cruks/audit.log"
 
 [mcp]
 servers = []
+permission_mode = "ask"
+
+[permissions]
+path = "~/.local/share/cruks/permissions.json"
+
+theme = "dark"

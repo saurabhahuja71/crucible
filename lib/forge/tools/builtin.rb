@@ -14,7 +14,12 @@ module Forge
           ShellExecute.new(**deps),
           GitStatus.new(**deps),
           GitDiff.new(**deps),
-          GitLog.new(**deps)
+          GitLog.new(**deps),
+          AddTodo.new(**deps),
+          CompleteTodo.new(**deps),
+          UpdateTodo.new(**deps),
+          ListTodos.new(**deps),
+          HttpRequest.new(**deps)
         ]
       end
     end

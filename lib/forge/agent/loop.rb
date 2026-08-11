@@ -159,20 +159,26 @@ module Forge
 
       def execute_tool_calls(tool_calls)
         tool_calls.each do |tc|
+          result = nil
           emit(:tool_start, name: tc[:name], arguments: tc[:arguments])
           @hooks.run(:pre_tool, tool: tc[:name], arguments: tc[:arguments])
 
           result = @tool_registry.execute(tc[:name], tc[:arguments])
+        rescue StandardError => e
+          result = Tools::Result.new(error: e.message, success: false)
 
-          @hooks.run(:post_tool, tool: tc[:name], result: result)
-          emit(:tool_end, name: tc[:name], output: result.to_s, success: result.success)
+        ensure
+          if result
+            @hooks.run(:post_tool, tool: tc[:name], result: result)
+            emit(:tool_end, name: tc[:name], output: result.to_s, success: result.success)
 
-          @session.add_message({
-                                 role: "tool",
-                                 tool_call_id: tc[:id],
-                                 name: tc[:name],
-                                 content: result.to_message_content
-                               })
+            @session.add_message({
+                                   role: "tool",
+                                   tool_call_id: tc[:id],
+                                   name: tc[:name],
+                                   content: result.to_message_content
+                                 })
+          end
         end
       end
 

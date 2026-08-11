@@ -78,13 +78,17 @@ module Forge
     end
 
     class SlashCommands
-      COMMANDS = %w[help model tools ssh parallel debug clear resume skills trust auto exit quit].freeze
+      COMMANDS = %w[help model mode theme todo queue tools ssh parallel debug clear resume skills trust auto permissions new exit quit].freeze
 
       def initialize(app)
         @app = app
         @handlers = {
           "help" => method(:cmd_help),
           "model" => method(:cmd_model),
+          "mode" => method(:cmd_mode),
+          "theme" => method(:cmd_theme),
+          "todo" => method(:cmd_todo),
+          "queue" => method(:cmd_queue),
           "tools" => method(:cmd_tools),
           "ssh" => method(:cmd_ssh),
           "parallel" => method(:cmd_parallel),
@@ -94,6 +98,8 @@ module Forge
           "skills" => method(:cmd_skills),
           "trust" => method(:cmd_trust),
           "auto" => method(:cmd_auto),
+          "permissions" => method(:cmd_permissions),
+          "new" => method(:cmd_new),
           "exit" => method(:cmd_exit),
           "quit" => method(:cmd_exit)
         }
@@ -117,6 +123,10 @@ module Forge
           Slash commands:
             /help              Show this help
             /model [name]      Show or switch provider/model
+            /mode ask|allow|plan  Change permission mode
+            /theme dark|light  Change display theme preference
+            /todo [clear]      Show or clear live todos
+            /queue             Show queued work
             /tools             List available tools
             /ssh [list|connect <name>]  SSH host management
             /parallel <tasks>  Run parallel sub-agents (semicolon-separated)
@@ -126,17 +136,53 @@ module Forge
             /skills            List loaded skills
             /trust             Trust current workspace
             /auto [on|off]     Toggle auto-approve mode
+            /permissions       List permanent approvals
+            /new               Start a fresh session
             /exit              Exit Cruks
         HELP
       end
 
       def cmd_model(args)
         if args && !args.empty?
-          @app.switch_provider(args)
+          name = args.split.first
+          if @app.provider_names.include?(name)
+            @app.switch_provider(name)
+          else
+            @app.switch_model(name)
+          end
+          "Model: #{@app.current_provider.model}"
         else
           provider = @app.current_provider
-          "Provider: #{provider.name} | Model: #{provider.model}"
+          models = @app.available_models
+          "Provider: #{provider.name} | Model: #{provider.model}#{models.empty? ? '' : " | Available: #{models.join(', ')}"}"
         end
+      end
+
+      def cmd_mode(args)
+        return "Permission mode: #{@app.permission_mode}" unless args && !args.empty?
+
+        @app.set_permission_mode(args.split.first)
+        "Permission mode: #{@app.permission_mode}"
+      end
+
+      def cmd_theme(args)
+        return "Theme: #{@app.theme}" unless args && !args.empty?
+
+        @app.theme = args.split.first
+        "Theme: #{@app.theme}"
+      end
+
+      def cmd_todo(args)
+        return @app.todo_summary unless args && !args.empty?
+
+        case args.split.first
+        when "clear" then @app.clear_todos; "Todos cleared"
+        else "Usage: /todo [clear]"
+        end
+      end
+
+      def cmd_queue(_args)
+        "Queued prompts: 0 (interactive input is processed serially)"
       end
 
       def cmd_tools(_args)
@@ -206,10 +252,24 @@ module Forge
 
       def cmd_auto(args)
         case args
-        when "on" then @app.auto_approve = true; "Auto-approve enabled ⚠"
-        when "off" then @app.auto_approve = false; "Auto-approve disabled"
+        when "on" then @app.auto_approve = true; @app.set_permission_mode("allow"); "Auto-approve enabled ⚠"
+        when "off" then @app.auto_approve = false; @app.set_permission_mode("ask"); "Auto-approve disabled"
         else "Auto-approve: #{@app.auto_approve? ? 'on ⚠' : 'off'}"
         end
+      end
+
+      def cmd_permissions(args)
+        if args&.start_with?("remove ")
+          key = args.delete_prefix("remove ")
+          return @app.remove_permission(key) ? "Approval removed" : "Approval not found"
+        end
+        approvals = @app.permission_approvals
+        approvals.empty? ? "No permanent approvals" : approvals.join("\n")
+      end
+
+      def cmd_new(_args)
+        @app.new_session
+        "Started a new session"
       end
 
       def cmd_exit(_args)
@@ -227,6 +287,7 @@ module Forge
         @slash = SlashCommands.new(self)
         @debug_mode = false
         @auto_approve = runtime.workspace.auto_approve
+        runtime.permissions.handler = method(:request_permission)
       end
 
       def run
@@ -281,6 +342,45 @@ module Forge
         runtime.skills.map { |s| s.respond_to?(:name) ? s.name : s.class.name }
       end
 
+      def permission_mode
+        runtime.permissions.mode
+      end
+
+      def set_permission_mode(mode)
+        runtime.set_permission_mode(mode)
+      end
+
+      def theme
+        @theme ||= runtime.config.fetch("theme", "dark")
+      end
+
+      def theme=(value)
+        value = value.to_s.downcase
+        raise ConfigurationError, "Theme must be dark or light" unless %w[dark light].include?(value)
+
+        @theme = value
+      end
+
+      def todo_summary
+        Agent::TODO_STORE.format
+      end
+
+      def clear_todos
+        Agent::TODO_STORE.clear
+      end
+
+      def permission_approvals
+        runtime.permissions.approvals
+      end
+
+      def remove_permission(key)
+        runtime.permissions.remove(key)
+      end
+
+      def new_session
+        runtime.new_session
+      end
+
       def ssh_hosts
         runtime.ssh_manager.list_hosts
       end
@@ -291,6 +391,18 @@ module Forge
 
       def switch_provider(name)
         runtime.switch_provider(name)
+      end
+
+      def switch_model(name)
+        runtime.switch_model(name)
+      end
+
+      def available_models
+        runtime.available_models
+      end
+
+      def provider_names
+        runtime.config.fetch("providers").keys - %w[primary failover]
       end
 
       def trust_workspace!
@@ -371,6 +483,13 @@ module Forge
         end
 
         runtime.agent_loop.run(input, stream: true)
+      end
+
+      def request_permission(request)
+        $stdout.puts "\nPermission required: #{request.tool_name} #{request.arguments.inspect}"
+        $stdout.print "Allow once [y], always [a], deny [n]? "
+        answer = $stdin.gets.to_s.strip.downcase
+        answer == "a" ? :always : answer == "y"
       end
     end
   end

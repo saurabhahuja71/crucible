@@ -181,7 +181,11 @@ Provider failover is automatic: if the primary fails, Forge tries each provider 
 | Command | Description |
 |---------|-------------|
 | `/help` | Show available commands |
-| `/model [name]` | Show or switch provider |
+| `/model [name]` | Show or switch the active model |
+| `/mode ask\|allow\|plan` | Change permission mode |
+| `/theme dark\|light` | Change display theme preference |
+| `/todo [clear]` | Show or clear the live todo list |
+| `/queue` | Show queued work (interactive input is serial) |
 | `/tools` | List available tools |
 | `/ssh list\|connect <name>` | Manage SSH connections |
 | `/parallel task1; task2` | Run parallel sub-agents |
@@ -191,6 +195,8 @@ Provider failover is automatic: if the primary fails, Forge tries each provider 
 | `/skills` | List loaded skills |
 | `/trust` | Trust current workspace |
 | `/auto on\|off` | Toggle auto-approve (⚠ risky) |
+| `/permissions [remove <key>]` | List or remove permanent tool approvals |
+| `/new` | Start a fresh session |
 | `/exit` | Exit Forge |
 
 ## Built-in Tools
@@ -208,16 +214,20 @@ Provider failover is automatic: if the primary fails, Forge tries each provider 
 | `git_log` | Recent commits |
 | `ssh_execute` | Run command on remote host |
 | `ssh_read_file` | Read remote file |
+| `add_todo`, `complete_todo`, `update_todo`, `list_todos` | Track multi-step work |
+| `http_request` | Bounded GET/POST API checks |
 
 ## Safety Model
 
-Forge enforces a workspace trust model:
+Cruks enforces a workspace trust and permission model:
 
 1. **Path validation** — tools cannot access paths outside the workspace
 2. **Command allow-list** — local shell and SSH `remote_exec` validate against `safety.allowed_commands` and `ssh.allowed_commands` (~90 common dev commands by default: `docker`, `podman`, `systemctl`, `journalctl`, `ssh`, `sed`, `awk`, `curl`, `tar`, etc.)
 3. **Blocked patterns** — `sudo`, `rm -rf /`, pipe-to-shell, etc.
-4. **Audit logging** — all tool calls logged to `~/.local/share/cruks/audit.log`
-5. **Confirmation prompts** — destructive actions require approval (unless `/trust` + `/auto`)
+4. **Permission modes** — `ask` confirms capability tools, `allow` permits them, and `plan` blocks them
+5. **Persistent approvals** — exact approvals are stored in `~/.local/share/cruks/permissions.json`
+6. **Audit logging** — all tool calls logged to `~/.local/share/cruks/audit.log`
+7. **Confirmation prompts** — destructive actions require approval (unless `/auto on`)
 
 ## SSH Configuration
 
