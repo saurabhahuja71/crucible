@@ -98,6 +98,18 @@ module Forge
         $stdout.puts @theme.dim("  MODE: #{mode.to_s.upcase} · Ctrl-T permissions · Ctrl-Y todos · /help · #{mouse}")
       end
 
+      def todo_panel(items)
+        return if items.empty?
+
+        completed = items.count(&:completed)
+        $stdout.puts @theme.bold("Tasks")
+        items.each do |item|
+          marker = item.completed ? @theme.paint(:success, "✓") : @theme.paint(:info, "○")
+          $stdout.puts "  #{marker} #{item.description}"
+        end
+        $stdout.puts @theme.dim("  Progress: #{completed}/#{items.length} complete")
+      end
+
       def workspace=(path)
         @workspace = path
       end
@@ -486,6 +498,7 @@ module Forge
         loop do
           @renderer.footer(provider: current_provider.name, model: current_provider.model,
                            mode: permission_mode, todos: (@todo_visible ? Agent::TODO_STORE.open_count : "off"))
+          @renderer.todo_panel(Agent::TODO_STORE.items) if @todo_visible
           input = read_user_input
           break if input.nil?
 
