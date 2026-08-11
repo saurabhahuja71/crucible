@@ -31,7 +31,7 @@ module Forge
     private
 
     def parse_options(argv)
-      opts = { config: nil, model: nil, trust: false }
+      opts = { config: nil, model: nil, trust: false, allow_tools: false }
       remaining = argv.dup
 
       while remaining.any?
@@ -44,6 +44,9 @@ module Forge
           remaining.shift(2)
         when "--trust"
           opts[:trust] = true
+          remaining.shift
+        when "--allow-tools"
+          opts[:allow_tools] = true
           remaining.shift
         else
           break
@@ -71,6 +74,7 @@ module Forge
       abort "Usage: cruks exec \"task description\"" if task.empty?
 
       runtime = build_runtime(opts)
+      runtime.set_permission_mode("allow") if opts[:allow_tools]
       result = runtime.exec(task, stream: true)
       puts result
     end
@@ -116,6 +120,7 @@ module Forge
           -c, --config PATH       Path to config TOML file
           -m, --model NAME        Override model for primary provider
           --trust                 Trust workspace without prompt
+          --allow-tools           Allow capability tools for headless execution
 
         SGLang shortcut:
           cruks-s                 Interactive session via SGLang (:30000)

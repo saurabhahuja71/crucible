@@ -126,7 +126,7 @@ module Forge
       end
 
       def connect(name)
-        host = @hosts[name]
+        host = @hosts[name] || @hosts.values.find { |candidate| candidate.host == name }
         raise Error, "Unknown SSH host: #{name}" unless host
 
         @mutex.synchronize do

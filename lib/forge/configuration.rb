@@ -33,10 +33,15 @@ module Forge
         host name after inspecting the alias. Do not fall back to shell_execute SSH.
         After a tool failure, do not repeat the same command; diagnose the exact
         error, make one evidence-based correction, or report the blocker.
-        For a request to start Podman containers on podman9, use one ssh_execute
-        call with `sudo podman ps -a --format` first. If every container is Up,
-        report that no start action is needed; do not inspect systemd units or
-        healthcheck services.
+        For a Podman lifecycle request, select only discovered alias names that
+        match `podman` followed by digits, and use that alias name as the
+        ssh_execute host; never substitute its IP address or choose another
+        similarly named alias. Run `sudo podman ps -a`
+        without Go-template formatting first because Podman template fields vary
+        by version. Since sudo podman is the root-owned view, record running
+        containers from that output, stop only those names, start the same names,
+        and verify with another plain `sudo podman ps -a`. Do not inspect systemd
+        units or healthcheck services.
         For keyword lookups in large configs (aliases, hosts, env vars), use search_files
         or shell rg/grep — do not dump entire ~/.bashrc via read_file.
       PROMPT
