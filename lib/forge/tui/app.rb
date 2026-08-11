@@ -472,6 +472,7 @@ module Forge
         @todo_visible = true
         install_keybindings
         @renderer.workspace = runtime.workspace.root
+        @initial_worktree_files = current_worktree_files
         runtime.permissions.handler = method(:request_permission)
       end
 
@@ -603,6 +604,10 @@ module Forge
       end
 
       def changed_files
+        current_worktree_files - Array(@initial_worktree_files)
+      end
+
+      def current_worktree_files
         output = `git -C #{Shellwords.escape(runtime.workspace.root.to_s)} status --short 2>/dev/null`
         output.lines.filter_map do |line|
           path = line[3..].to_s.strip
