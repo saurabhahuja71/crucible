@@ -99,10 +99,13 @@ module Forge
       end
 
       def todo_panel(items)
-        return if items.empty?
-
         completed = items.count(&:completed)
         $stdout.puts @theme.bold("Tasks")
+        if items.empty?
+          $stdout.puts @theme.dim("  No active tasks · /todo add <description>")
+          return
+        end
+
         items.each do |item|
           marker = item.completed ? @theme.paint(:success, "✓") : @theme.paint(:info, "○")
           $stdout.puts "  #{marker} #{item.description}"
