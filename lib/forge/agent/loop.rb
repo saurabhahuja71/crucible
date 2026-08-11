@@ -118,6 +118,7 @@ module Forge
         emit(:user_message, content: user_input)
 
         turns = 0
+        empty_responses = 0
         loop do
           turns += 1
           raise Error, "Max turns (#{@max_turns}) exceeded" if turns > @max_turns
@@ -132,7 +133,14 @@ module Forge
             execute_tool_calls(response.tool_calls)
           else
             content = response.content.to_s
-            content = "(no response from model)" if content.empty?
+            if content.empty?
+              empty_responses += 1
+              if empty_responses <= 2
+                emit(:model_retry, attempt: empty_responses)
+                next
+              end
+              raise ProviderError, "Model returned no final response after tool execution"
+            end
             @session.add_message({ role: "assistant", content: content })
             emit(:assistant_message, content: content)
             @session.save!

@@ -67,15 +67,19 @@ module Forge
 
       def tool_start(name, arguments)
         @activity.update(tool_label(name, arguments))
-        $stdout.puts @tool_view.render(name, arguments)
         @active_tool = name
         @active_tool_arguments = arguments
+        @active_tool_started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       def tool_end(name, output, success:)
         @activity.finish
         record("Error: #{name}", output.to_s.lines.first.to_s.strip) unless success
-        $stdout.puts @tool_view.render(name, @active_tool_arguments || {}, result: output, success: success)
+        duration = if @active_tool_started_at
+                     (Process.clock_gettime(Process::CLOCK_MONOTONIC) - @active_tool_started_at).round(1)
+                   end
+        $stdout.puts @tool_view.render(name, @active_tool_arguments || {}, result: output,
+                                       success: success, duration: duration)
       end
 
       def error(message)
@@ -600,12 +604,17 @@ module Forge
 
       def changed_files
         output = `git -C #{Shellwords.escape(runtime.workspace.root.to_s)} status --short 2>/dev/null`
-        output.lines.map { |line| line[3..].to_s.strip }.reject(&:empty?)
+        output.lines.filter_map do |line|
+          path = line[3..].to_s.strip
+          next if path.empty?
+
+          "#{line[0, 2].strip} #{path}".strip
+        end
       end
 
       def changes_summary
         files = changed_files
-        files.empty? ? "Changes\n\n  Working tree clean" : "Changes\n\n" + files.map { |file| "  M #{file}" }.join("\n")
+        files.empty? ? "Changes\n\n  Working tree clean" : "Changes\n\n" + files.map { |file| "  #{file}" }.join("\n")
       end
 
       def current_diff
@@ -753,7 +762,7 @@ module Forge
       private
 
       def prompt_message
-        "cruks> "
+        "cruks ❯ "
       end
 
       def read_user_input

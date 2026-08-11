@@ -103,11 +103,20 @@ module Forge
       end
 
       def render(name, arguments, result: nil, success: nil, duration: nil)
-        title = name.to_s.sub(/\A(?:shell_execute|run_tests)\z/, "run")
+        title = { "read_file" => "Read", "list_directory" => "List", "search_files" => "Search",
+                  "search_symbols" => "Search", "edit_file" => "Edit", "write_file" => "Write",
+                  "apply_patch" => "Patch", "shell_execute" => "Run", "run_tests" => "Run",
+                  "ssh_execute" => "Run", "ssh_read_file" => "Read" }.fetch(name.to_s, name.to_s.capitalize)
         lines = ["  ┌─ #{@theme.bold(title.capitalize)}"]
         format_arguments(arguments).each { |line| lines << "  │ #{line}" }
         if result
-          success_label = name.to_s.match?(/test|shell|command/) ? "✓ passed" : "✓ applied"
+          success_label = if name.to_s.match?(/test|shell|command/)
+                            "✓ passed"
+                          elsif name.to_s.match?(/read|list|search|info|git|ssh/)
+                            "✓ completed"
+                          else
+                            "✓ applied"
+                          end
           state = success ? @theme.paint(:success, success_label) : @theme.paint(:danger, "✗ failed")
           state += " · #{duration}s" if duration
           lines << "  └─ #{state}"
