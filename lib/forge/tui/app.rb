@@ -5,12 +5,19 @@ require "reline"
 require "tty-box"
 require "tty-spinner"
 require "tty-table"
+require "shellwords"
 
 module Forge
   module TUI
     class Renderer
-      def initialize
-        @pastel = Pastel.new
+      def initialize(color: true, debug: false)
+        @theme = UI::Theme.new(color: color)
+        @pastel = Pastel.new(enabled: color)
+        @status = UI::StatusBar.new(theme: @theme)
+        @activity = UI::Activity.new(theme: @theme)
+        @tool_view = UI::ToolView.new(theme: @theme)
+        @markdown = UI::Markdown.new(theme: @theme)
+        @debug = debug
         @transcript = []
         @scroll_offset = 0
         @mouse_enabled = false
@@ -19,23 +26,29 @@ module Forge
       attr_reader :mouse_enabled
 
       def banner
-        TTY::Box.frame(
-          "Cruks v#{Forge::VERSION}\nLocal-first coding agent",
-          title: { top_left: " ⚒ ", bottom_right: " ⚒ " },
-          border: :thick,
-          padding: [1, 2]
-        )
+        TTY::Box.frame("⚒ Cruks v#{Forge::VERSION}\nLocal-first coding agent",
+                       border: :thick, padding: [1, 2])
+      end
+
+      def startup(provider:, model:, workspace:, context: nil)
+        lines = [@theme.bold("⚒ Cruks #{Forge::VERSION}"), @theme.dim("Local-first coding agent"), "",
+                 "  #{@theme.paint(:success, '✓')} #{provider}",
+                 "  #{@theme.paint(:success, '✓')} #{model}"]
+        lines << "  #{@theme.paint(:success, '✓')} Context #{context}" if context
+        lines.concat(["", "  #{@theme.dim(workspace.to_s)}"])
+        $stdout.puts lines.join("\n")
       end
 
       def assistant(content)
         record("Assistant", content)
-        $stdout.puts @pastel.green.bold("▸ Assistant:")
+        $stdout.puts @theme.bold("\n#{@theme.paint(:model, 'Cruks')}")
         # Default terminal foreground (same contrast as user input) — never dim.
-        $stdout.puts wrap(content)
+        $stdout.puts @markdown.render(content)
         $stdout.puts
       end
 
       def stream_chunk(chunk)
+        @activity.finish
         # Stream answers in normal terminal color so they match prompt/question contrast.
         $stdout.print chunk
         $stdout.flush
@@ -47,25 +60,27 @@ module Forge
       end
 
       def stream_finished(content)
+        @activity.finish
         record("Assistant", content)
         stream_end
       end
 
       def tool_start(name, arguments)
-        # Keep interactive sessions readable; successful tool details remain
-        # in the audit/session data and the final assistant response.
+        @activity.update(tool_label(name, arguments))
+        $stdout.puts @tool_view.render(name, arguments)
         @active_tool = name
+        @active_tool_arguments = arguments
       end
 
       def tool_end(name, output, success:)
-        return if success
-
-        record("Error: #{name}", output.to_s.lines.first.to_s.strip)
-        $stdout.puts @pastel.red("  ✗ #{name}: #{output.to_s.lines.first.to_s.strip[0, 240]}")
+        @activity.finish
+        record("Error: #{name}", output.to_s.lines.first.to_s.strip) unless success
+        $stdout.puts @tool_view.render(name, @active_tool_arguments || {}, result: output, success: success)
       end
 
       def error(message)
-        $stdout.puts @pastel.red("✗ Error: #{message}")
+        @activity.finish
+        $stdout.puts @pastel.red("╭─ Error ─╮\n│ #{message}\n╰─────────╯")
       end
 
       def info(message)
@@ -74,7 +89,17 @@ module Forge
 
       def footer(provider:, model:, mode:, todos:)
         mouse = @mouse_enabled ? "mouse:on" : "mouse:off"
-        $stdout.puts @pastel.dim("─ Cruks | #{provider}/#{model} | mode:#{mode} | todos:#{todos} | #{mouse} | /help /scroll /quit ─")
+        $stdout.puts @status.render(provider: provider, model: model, mode: mode,
+                                    workspace: @workspace || ".", todos: todos)
+        $stdout.puts @theme.dim("  MODE: #{mode.to_s.upcase} · /mode ask|allow|plan · /permissions toggle · /help · #{mouse}")
+      end
+
+      def workspace=(path)
+        @workspace = path
+      end
+
+      def thinking
+        @activity.start("Thinking...")
       end
 
       def set_mouse(enabled)
@@ -108,6 +133,20 @@ module Forge
         $stdout.puts TTY::Table.new(header: headers, rows: rows).render
       end
 
+      def completion(summary, changed: [], verification: [])
+        $stdout.puts UI::CompletionSummary.new(theme: @theme).render(summary, changed: changed, verification: verification)
+      end
+
+      def tool_label(name, arguments)
+        case name.to_s
+        when "search_files", "search_symbols" then "Searching repository..."
+        when "read_file", "file_info" then "Reading #{arguments['path']}..."
+        when "edit_file", "write_file", "apply_patch" then "Editing files..."
+        when "run_tests", "shell_execute" then "Running command..."
+        else "Running #{name}..."
+        end
+      end
+
       private
 
       def record(label, content)
@@ -132,7 +171,7 @@ module Forge
     end
 
     class SlashCommands
-      COMMANDS = %w[help model mode theme todo queue tools ssh parallel debug clear scroll mouse resume skills trust auto permissions new exit quit].freeze
+      COMMANDS = %w[help model mode theme todo queue tools ssh parallel debug clear scroll mouse status doctor changes diff logs history resume sessions skills trust auto permissions new exit quit].freeze
 
       def initialize(app)
         @app = app
@@ -144,6 +183,13 @@ module Forge
           "todo" => method(:cmd_todo),
           "scroll" => method(:cmd_scroll),
           "mouse" => method(:cmd_mouse),
+          "status" => method(:cmd_status),
+          "doctor" => method(:cmd_doctor),
+          "changes" => method(:cmd_changes),
+          "diff" => method(:cmd_diff),
+          "logs" => method(:cmd_logs),
+          "history" => method(:cmd_history),
+          "sessions" => method(:cmd_sessions),
           "queue" => method(:cmd_queue),
           "tools" => method(:cmd_tools),
           "ssh" => method(:cmd_ssh),
@@ -184,6 +230,13 @@ module Forge
             /todo [add|done|clear]  Manage the live todo list
             /scroll up|down|top|bottom  Scroll long output
             /mouse on|off      Toggle terminal mouse reporting
+            /status            Show current session status
+            /doctor            Diagnose the local environment
+            /changes           Show changed files
+            /diff              Show current diff
+            /logs              Show recent diagnostics
+            /history           Show conversation history
+            /sessions          List saved sessions
             /queue             Show queued work
             /tools             List available tools
             /ssh [list|connect <name>]  SSH host management
@@ -220,8 +273,9 @@ module Forge
       def cmd_mode(args)
         return "Permission mode: #{@app.permission_mode}" unless args && !args.empty?
 
-        @app.set_permission_mode(args.split.first)
-        "Permission mode: #{@app.permission_mode}"
+        mode = args.split.first
+        @app.set_permission_mode(mode)
+        @app.mode_announcement(mode)
       end
 
       def cmd_theme(args)
@@ -258,6 +312,35 @@ module Forge
 
         @app.set_mouse(args.split.first)
         "Mouse reporting: #{@app.mouse_enabled? ? 'on' : 'off'}"
+      end
+
+      def cmd_status(_args)
+        @app.status_summary
+      end
+
+      def cmd_doctor(_args)
+        @app.doctor_summary
+      end
+
+      def cmd_changes(_args)
+        @app.changes_summary
+      end
+
+      def cmd_diff(_args)
+        @app.current_diff
+      end
+
+      def cmd_logs(_args)
+        @app.recent_logs
+      end
+
+      def cmd_history(_args)
+        @app.history_summary
+      end
+
+      def cmd_sessions(_args)
+        sessions = Agent::Session.list
+        sessions.empty? ? "No saved sessions" : sessions.map { |s| "#{s[:id][0, 8]}  #{s[:message_count]} messages  #{s[:created_at]}" }.join("\n")
       end
 
       def cmd_queue(_args)
@@ -341,12 +424,12 @@ module Forge
         value = args.to_s.downcase
         if %w[ask allow plan].include?(value)
           @app.set_permission_mode(value)
-          return "Permission mode: #{@app.permission_mode}"
+          return @app.mode_announcement(value)
         end
         if value == "toggle" || %w[on off].include?(value)
           next_mode = value == "off" || (value == "toggle" && @app.permission_mode == "allow") ? "ask" : "allow"
           @app.set_permission_mode(next_mode)
-          return "Permission mode: #{@app.permission_mode}"
+          return @app.mode_announcement(next_mode)
         end
         if args&.start_with?("remove ")
           key = args.delete_prefix("remove ")
@@ -370,21 +453,22 @@ module Forge
       attr_accessor :debug_mode, :auto_approve
       attr_reader :runtime
 
-      def initialize(runtime)
+      def initialize(runtime, color: true, debug: false)
         @runtime = runtime
-        @renderer = Renderer.new
+        @renderer = Renderer.new(color: color, debug: debug)
         @slash = SlashCommands.new(self)
         @debug_mode = false
         @auto_approve = runtime.workspace.auto_approve
         @mouse_enabled = false
+        @renderer.workspace = runtime.workspace.root
         runtime.permissions.handler = method(:request_permission)
       end
 
       def run
-        $stdout.puts @renderer.banner
-        @renderer.info("Workspace: #{runtime.workspace.root}")
-        @renderer.info("Provider: #{current_provider.name} (#{current_provider.model})")
-        @renderer.info("Shortcuts: /help · /permissions toggle · /todo · /scroll · /mouse on|off · /quit")
+        @renderer.startup(provider: current_provider.name, model: current_provider.model,
+                          workspace: runtime.workspace.root, context: context_size)
+        @renderer.info("MODE: #{permission_mode.upcase} · /mode ask|allow|plan · /permissions toggle · /auto on|off")
+        @renderer.info("/help commands · /todo · /changes · /diff · /status · /doctor · /scroll · /mouse on|off · /quit")
         @renderer.info("Ctrl+C interrupts; Ctrl+D or /quit exits. Mouse is off by default; enable with /mouse on.\n")
 
         loop do
@@ -445,6 +529,14 @@ module Forge
         runtime.set_permission_mode(mode)
       end
 
+      def mode_announcement(mode)
+        case mode.to_s
+        when "plan" then "Plan mode enabled\n\nCruks will inspect the repository and propose changes without modifying files."
+        when "allow" then "Allow mode enabled\n\nApproved tool actions can execute without repeated confirmation."
+        else "Ask mode enabled\n\nCruks will request approval for capability tools."
+        end
+      end
+
       def theme
         @theme ||= runtime.config.fetch("theme", "dark")
       end
@@ -458,6 +550,66 @@ module Forge
 
       def todo_summary
         Agent::TODO_STORE.format
+      end
+
+      def status_summary
+        <<~STATUS
+          Cruks Status
+
+            Model       #{current_provider.model}
+            Provider    #{current_provider.name}
+            Mode        #{permission_mode.upcase}
+            Workspace   #{runtime.workspace.root}
+            Context     #{context_size || 'unavailable'}
+            Tasks       #{todo_progress}
+            Changes     #{changed_files.length} files
+        STATUS
+      end
+
+      def doctor_summary
+        checks = {
+          "Ollama/provider configured" => !current_provider.nil?,
+          "Workspace accessible" => runtime.workspace.root.directory?,
+          "Git available" => system("command -v git >/dev/null 2>&1"),
+          "Ruby available" => system("command -v ruby >/dev/null 2>&1")
+        }
+        "Cruks Doctor\n\n" + checks.map { |label, ok| "  #{ok ? '✓' : '✗'} #{label}" }.join("\n") +
+          "\n\n  Model\n    #{current_provider.model}\n  Workspace\n    #{runtime.workspace.root}"
+      end
+
+      def changed_files
+        output = `git -C #{Shellwords.escape(runtime.workspace.root.to_s)} status --short 2>/dev/null`
+        output.lines.map { |line| line[3..].to_s.strip }.reject(&:empty?)
+      end
+
+      def changes_summary
+        files = changed_files
+        files.empty? ? "Changes\n\n  Working tree clean" : "Changes\n\n" + files.map { |file| "  M #{file}" }.join("\n")
+      end
+
+      def current_diff
+        output = `git -C #{Shellwords.escape(runtime.workspace.root.to_s)} diff 2>/dev/null`
+        output.empty? ? "No unstaged diff" : output
+      end
+
+      def recent_logs
+        path = runtime.config.expand_path(runtime.config.fetch("logging.audit_path").to_s)
+        path.file? ? "Recent diagnostics\n\n#{path.readlines.last(20).join}" : "No diagnostics available"
+      end
+
+      def history_summary
+        messages = runtime.agent_loop.session.messages.last(12)
+        messages.empty? ? "No conversation history" : messages.map { |m| "#{m['role'] || m[:role]}: #{(m['content'] || m[:content]).to_s.lines.first.to_s.strip}" }.join("\n")
+      end
+
+      def todo_progress
+        items = Agent::TODO_STORE.items
+        items.empty? ? "0/0 complete" : "#{items.count(&:completed)}/#{items.length} complete"
+      end
+
+      def context_size
+        value = runtime.config.fetch("providers.#{runtime.config.fetch('providers.primary')}.context")
+        value ? "#{value} tokens" : nil
       end
 
       def clear_todos
@@ -572,6 +724,7 @@ module Forge
       def run_agent(input)
         streaming = false
         streamed_content = +""
+        @renderer.thinking
         runtime.agent_loop.on_event = lambda do |event, data|
           case event
           when :content
@@ -601,12 +754,16 @@ module Forge
           end
         end
 
-        runtime.agent_loop.run(input, stream: true)
+        result = runtime.agent_loop.run(input, stream: true)
+        @renderer.completion(result, changed: changed_files.map { |file| "M #{file}" })
       end
 
       def request_permission(request)
-        $stdout.puts "\nPermission required: #{request.tool_name} #{request.arguments.inspect}"
-        $stdout.print "Allow once [y], always [a], deny [n]? "
+        command = request.arguments["command"] || request.arguments.inspect
+        dangerous = command.to_s.match?(/\brm\b|\bmv\b|\bchmod\b|\bdelete\b/i)
+        title = dangerous ? "⚠ Destructive command" : "Command requires approval"
+        $stdout.puts "\n╭─ #{title} ─╮\n│ #{command}\n│ cwd: #{runtime.workspace.root}\n╰#{'─' * 35}╯"
+        $stdout.print "[y] Run once  [a] Always allow  [n] Deny: "
         answer = $stdin.gets.to_s.strip.downcase
         answer == "a" ? :always : answer == "y"
       end

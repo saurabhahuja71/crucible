@@ -49,9 +49,10 @@ module Forge
 
       def format
         current = items
-        return "(no todos)" if current.empty?
+        return "Tasks\n\n  (no tasks)\n\nProgress: 0/0 complete" if current.empty?
 
-        current.map { |item| "#{item.completed ? '[x]' : '[ ]'} #{item.id}. #{item.description}" }.join("\n")
+        rows = current.map { |item| "  #{item.completed ? '✓ [x]' : '○ [ ]'} #{item.id}. #{item.description}" }
+        "Tasks\n\n#{rows.join("\n")}\n\nProgress: #{current.count(&:completed)}/#{current.length} complete"
       end
 
       private

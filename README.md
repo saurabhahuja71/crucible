@@ -224,8 +224,20 @@ ones are `/help`, `/mode ask|allow|plan`, `/todo`, `/model`, `/permissions`, and
 | `/trust` | Trust current workspace |
 | `/auto on\|off` | Toggle auto-approve (⚠ risky) |
 | `/permissions [remove <key>]` | List or remove permanent tool approvals |
+| `/status` | Show current model, mode, workspace, tasks, and changes |
+| `/doctor` | Diagnose the local provider and workspace |
+| `/changes` | Summarize working-tree changes |
+| `/diff` | Show the current unstaged diff |
+| `/logs` | Show recent audit diagnostics |
+| `/history` | Show recent conversation messages |
+| `/sessions` | List saved sessions |
 | `/new` | Start a fresh session |
 | `/exit` | Exit Forge |
+
+The interactive footer always shows the active permission mode and its controls:
+`/mode ask|allow|plan` and `/permissions toggle`. Use `--no-color` for plain
+terminal output, `--debug` for verbose diagnostics, or `--json` with `exec` or
+`--prompt` for automation.
 
 ## Built-in Tools
 

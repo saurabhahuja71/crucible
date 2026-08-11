@@ -9,6 +9,7 @@
 - Docker isolation and full-screen rendering remain documented deployment limitations.
 - Pre-existing working-tree items `.gitignore`, `lib/forge/cli.rb`, and `hi` were preserved; review staged scope before push.
 - TUI follow-up added visible status/footer shortcuts, `/mouse on|off`, permission toggles, richer todo commands, and transcript scrolling via `/scroll up|down|top|bottom`.
+- Professional UI upgrade is in progress in `lib/forge/ui/terminal.rb` and `lib/forge/tui/app.rb`: status/activity/tool/Markdown/completion components, `/status`, `/doctor`, `/changes`, `/diff`, `/logs`, `/history`, `/sessions`, `--prompt`, `--json`, `--debug`, `--verbose`, and `--no-color` are implemented and focused UI tests are present.
 
 - Ruby local-first coding agent in `lib/forge/`, exposed as the `cruks` gem and CLI.
 - Existing architecture includes OpenAI-compatible/Ollama providers with failover, sessions, skills, SSH, parallel agents, MCP scaffolding, filesystem/shell/git tools, safety validation, audit logging, and a terminal UI.

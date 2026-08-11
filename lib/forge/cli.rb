@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "json"
+require "shellwords"
+
 module Forge
   class CLI
     def self.run(argv)
@@ -8,6 +11,8 @@ module Forge
 
     def run(argv)
       opts, args = parse_options(argv)
+
+      return headless([opts[:prompt]], opts) if opts[:prompt]
 
       case args[0]
       when "exec"
@@ -33,7 +38,8 @@ module Forge
     private
 
     def parse_options(argv)
-      opts = { config: nil, model: nil, provider: nil, trust: false, allow_tools: false }
+      opts = { config: nil, model: nil, provider: nil, trust: false, allow_tools: false,
+               prompt: nil, json: false, debug: false, verbose: false, color: true }
       remaining = argv.dup
 
       while remaining.any?
@@ -53,6 +59,24 @@ module Forge
         when "--allow-tools"
           opts[:allow_tools] = true
           remaining.shift
+        when "--prompt"
+          opts[:prompt] = remaining[1]
+          remaining.shift(2)
+        when "--json"
+          opts[:json] = true
+          remaining.shift
+        when "--debug"
+          opts[:debug] = true
+          remaining.shift
+        when "--verbose"
+          opts[:verbose] = true
+          remaining.shift
+        when "--no-color"
+          opts[:color] = false
+          remaining.shift
+        when "--theme"
+          opts[:theme] = remaining[1]
+          remaining.shift(2)
         else
           break
         end
@@ -62,17 +86,20 @@ module Forge
     end
 
     def build_runtime(opts)
-      Runtime.new(
+      runtime = Runtime.new(
         config_path: opts[:config],
         model: opts[:model],
         provider: opts[:provider],
         trust: opts[:trust]
       )
+      Forge.logger.level = opts[:debug] ? Logger::DEBUG : (opts[:verbose] ? Logger::INFO : Forge.logger.level)
+      runtime.config.data["theme"] = opts[:theme] if opts[:theme]
+      runtime
     end
 
     def interactive(argv, opts)
       runtime = build_runtime(opts)
-      TUI::App.new(runtime).run
+      TUI::App.new(runtime, color: opts[:color] && ENV["NO_COLOR"].nil?, debug: opts[:debug]).run
     end
 
     def headless(args, opts)
@@ -84,6 +111,8 @@ module Forge
       # future explicit --ask-tools switch opts into an approval handler.
       runtime.set_permission_mode("allow")
       runtime.agent_loop.on_event = lambda do |event, data|
+        next if opts[:json]
+
         case event
         when :tool_start
           warn "[tool:start] #{data[:name]} #{JSON.generate(data[:arguments])}"
@@ -92,7 +121,16 @@ module Forge
         end
       end
       result = runtime.exec(task, stream: false)
-      puts result
+      if opts[:json]
+        puts JSON.generate(status: "completed", summary: result, files_changed: changed_files(runtime))
+      else
+        puts result
+      end
+    end
+
+    def changed_files(runtime)
+      output = `git -C #{Shellwords.escape(runtime.workspace.root.to_s)} status --short 2>/dev/null`
+      output.lines.map { |line| line[3..].to_s.strip }.reject(&:empty?)
     end
 
     def list_sessions
@@ -128,6 +166,7 @@ module Forge
         Usage:
           cruks                   Start interactive TUI session
           cruks exec "task"       Run a single task (headless)
+          cruks --prompt "task"   Run a single task (headless)
           cruks sessions          List saved sessions
           cruks init              Create default config
           cruks version           Show version
@@ -138,6 +177,11 @@ module Forge
           -p, --provider NAME     Select the configured provider
           --trust                 Trust workspace without prompt
           --allow-tools           Allow capability tools for headless execution
+          --json                  Emit machine-readable headless output
+          --debug                 Show detailed diagnostics
+          --verbose               Enable verbose logging
+          --no-color              Disable terminal colors
+          --theme NAME            Select the terminal theme
 
         SGLang shortcut:
           cruks-s                 Interactive session via SGLang (:30000)

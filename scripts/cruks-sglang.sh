@@ -23,7 +23,7 @@ _cruks_sglang_run() {
     return 1
   fi
 
-  _sglang_ensure_api || return 1
+  if [[ "${CRUKS_DEBUG:-}" == "1" ]]; then _sglang_ensure_api || return 1; else _sglang_ensure_api >/dev/null 2>&1 || return 1; fi
   export SGLANG_HOST="http://127.0.0.1:${SGLANG_TUNNEL_LOCAL_PORT:-30000}"
 
   local model_id
@@ -35,7 +35,7 @@ _cruks_sglang_run() {
     return 1
   fi
 
-  echo "cruks-sglang: base=${SGLANG_HOST}/v1 model=${model_id} cfg=${CRUKS_SGLANG_CFG}"
+  [[ "${CRUKS_DEBUG:-}" == "1" ]] && echo "cruks-sglang: base=${SGLANG_HOST}/v1 model=${model_id} cfg=${CRUKS_SGLANG_CFG}"
 
   cd "${CRUKS_ROOT}"
 

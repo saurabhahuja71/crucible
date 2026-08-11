@@ -14,7 +14,7 @@ _cruks_ollama_run() {
   # When loaded from the user's shell, use the canonical S1 tunnel setup
   # before reading config so Ollama never falls back to bare localhost:11434.
   if declare -F _ollama1_ensure >/dev/null 2>&1; then
-    _ollama1_ensure || return 1
+    if [[ "${CRUKS_DEBUG:-}" == "1" ]]; then _ollama1_ensure || return 1; else _ollama1_ensure >/dev/null 2>&1 || return 1; fi
   fi
   export CRUKS_ROOT="${CRUKS_ROOT:-$(cd "${_CRUKS_OLLAMA_SCRIPT_DIR}/.." && pwd)}"
   export CRUKS_OLLAMA_CFG="${CRUKS_OLLAMA_CFG:-${CRUKS_ROOT}/config/cruks.ollama.toml}"
@@ -96,7 +96,7 @@ EOF
   fi
   model_id="${model_id:-darwin-35b-a3b-opus:q4_k_m}"
 
-  echo "cruks-ollama: base=${ollama_host}/v1 model=${model_id} cfg=${CRUKS_OLLAMA_CFG}"
+  [[ "${CRUKS_DEBUG:-}" == "1" ]] && echo "cruks-ollama: base=${ollama_host}/v1 model=${model_id} cfg=${CRUKS_OLLAMA_CFG}"
 
   env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
     -u ALL_PROXY -u all_proxy \
