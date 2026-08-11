@@ -668,10 +668,12 @@ module Forge
           Reline::LineEditor.class_eval do
             def cruks_toggle_permission(_key = nil)
               set_current_line("/permissions toggle", "/permissions toggle".bytesize)
+              send(:ed_newline, nil)
             end
 
             def cruks_toggle_todos(_key = nil)
               set_current_line("/todo toggle", "/todo toggle".bytesize)
+              send(:ed_newline, nil)
             end
           end
         end

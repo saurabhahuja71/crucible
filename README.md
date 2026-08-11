@@ -239,8 +239,8 @@ The interactive footer always shows the active permission mode and its controls:
 terminal output, `--debug` for verbose diagnostics, or `--json` with `exec` or
 `--prompt` for automation.
 
-Keyboard shortcuts: `Ctrl-T` inserts the permission toggle command and
-`Ctrl-Y` inserts the todo-panel toggle command; press Enter to apply it. The
+Keyboard shortcuts: `Ctrl-T` immediately toggles the permission mode between
+ASK and ALLOW, and `Ctrl-Y` immediately toggles todo-panel visibility. The
 working directory is shown at startup and by `/status`, keeping the compact
 status bar readable in narrow terminals.
 
