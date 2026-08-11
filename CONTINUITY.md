@@ -8,6 +8,7 @@
 - Added regression coverage; `ruby -S rspec` passes 32 examples and all Ruby files pass syntax checks.
 - Docker isolation and full-screen rendering remain documented deployment limitations.
 - Pre-existing working-tree items `.gitignore`, `lib/forge/cli.rb`, and `hi` were preserved; review staged scope before push.
+- TUI follow-up added visible status/footer shortcuts, `/mouse on|off`, permission toggles, richer todo commands, and transcript scrolling via `/scroll up|down|top|bottom`.
 
 - Ruby local-first coding agent in `lib/forge/`, exposed as the `cruks` gem and CLI.
 - Existing architecture includes OpenAI-compatible/Ollama providers with failover, sessions, skills, SSH, parallel agents, MCP scaffolding, filesystem/shell/git tools, safety validation, audit logging, and a terminal UI.

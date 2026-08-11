@@ -208,8 +208,11 @@ ones are `/help`, `/mode ask|allow|plan`, `/todo`, `/model`, `/permissions`, and
 | `/help` | Show available commands |
 | `/model [name]` | Show or switch the active model |
 | `/mode ask\|allow\|plan` | Change permission mode |
+| `/permissions [ask\|allow\|plan\|toggle]` | Toggle or inspect permissions |
+| `/mouse on\|off` | Toggle terminal mouse reporting |
 | `/theme dark\|light` | Change display theme preference |
-| `/todo [clear]` | Show or clear the live todo list |
+| `/todo [add DESC\|done ID\|clear]` | Manage the live todo list |
+| `/scroll up\|down\|top\|bottom` | Browse long transcript output with a scrollbar |
 | `/queue` | Show queued work (interactive input is serial) |
 | `/tools` | List available tools |
 | `/ssh list\|connect <name>` | Manage SSH connections |

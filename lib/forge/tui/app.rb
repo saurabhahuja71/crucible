@@ -11,7 +11,12 @@ module Forge
     class Renderer
       def initialize
         @pastel = Pastel.new
+        @transcript = []
+        @scroll_offset = 0
+        @mouse_enabled = false
       end
+
+      attr_reader :mouse_enabled
 
       def banner
         TTY::Box.frame(
@@ -23,6 +28,7 @@ module Forge
       end
 
       def assistant(content)
+        record("Assistant", content)
         $stdout.puts @pastel.green.bold("▸ Assistant:")
         # Default terminal foreground (same contrast as user input) — never dim.
         $stdout.puts wrap(content)
@@ -40,6 +46,11 @@ module Forge
         $stdout.puts
       end
 
+      def stream_finished(content)
+        record("Assistant", content)
+        stream_end
+      end
+
       def tool_start(name, arguments)
         # Keep interactive sessions readable; successful tool details remain
         # in the audit/session data and the final assistant response.
@@ -49,6 +60,7 @@ module Forge
       def tool_end(name, output, success:)
         return if success
 
+        record("Error: #{name}", output.to_s.lines.first.to_s.strip)
         $stdout.puts @pastel.red("  ✗ #{name}: #{output.to_s.lines.first.to_s.strip[0, 240]}")
       end
 
@@ -60,11 +72,59 @@ module Forge
         $stdout.puts @pastel.blue("ℹ #{message}")
       end
 
+      def footer(provider:, model:, mode:, todos:)
+        mouse = @mouse_enabled ? "mouse:on" : "mouse:off"
+        $stdout.puts @pastel.dim("─ Cruks | #{provider}/#{model} | mode:#{mode} | todos:#{todos} | #{mouse} | /help /scroll /quit ─")
+      end
+
+      def set_mouse(enabled)
+        @mouse_enabled = enabled
+        $stdout.print(enabled ? "\e[?1000h\e[?1006h" : "\e[?1000l\e[?1006l")
+        $stdout.flush
+        enabled
+      end
+
+      def scroll(direction = "bottom")
+        return "No transcript yet" if @transcript.empty?
+
+        height = viewport_height
+        max_offset = [@transcript.length - height, 0].max
+        case direction.to_s.downcase
+        when "up", "back", "pageup" then @scroll_offset = [@scroll_offset - height, 0].max
+        when "down", "forward", "pagedown" then @scroll_offset = [@scroll_offset + height, max_offset].min
+        when "top", "home" then @scroll_offset = 0
+        else @scroll_offset = max_offset
+        end
+        visible = @transcript[@scroll_offset, height] || []
+        $stdout.puts @pastel.dim("\nTranscript #{@scroll_offset + 1}-#{@scroll_offset + visible.length}/#{@transcript.length}")
+        visible.each_with_index do |line, index|
+          marker = scrollbar_marker(@scroll_offset + index, @transcript.length, height)
+          $stdout.puts "#{line} #{marker}"
+        end
+        "Scroll #{direction}: #{@scroll_offset + 1}-#{@scroll_offset + visible.length}/#{@transcript.length} (use /scroll up|down|top|bottom)"
+      end
+
       def table(headers, rows)
         $stdout.puts TTY::Table.new(header: headers, rows: rows).render
       end
 
       private
+
+      def record(label, content)
+        content.to_s.lines.each { |line| @transcript << "#{label}: #{line.chomp}" }
+        @scroll_offset = [@transcript.length - viewport_height, 0].max
+      end
+
+      def viewport_height
+        [(ENV.fetch("LINES", "24").to_i - 8), 5].max
+      end
+
+      def scrollbar_marker(index, total, height)
+        return "│" if total <= height
+
+        thumb = [[(index.to_f / total * height).floor, 0].max, height - 1].min
+        index % height == thumb ? "█" : "│"
+      end
 
       def wrap(text, width: 100)
         text.to_s.lines.map { |line| line.chomp }.join("\n")
@@ -72,7 +132,7 @@ module Forge
     end
 
     class SlashCommands
-      COMMANDS = %w[help model mode theme todo queue tools ssh parallel debug clear resume skills trust auto permissions new exit quit].freeze
+      COMMANDS = %w[help model mode theme todo queue tools ssh parallel debug clear scroll mouse resume skills trust auto permissions new exit quit].freeze
 
       def initialize(app)
         @app = app
@@ -82,6 +142,8 @@ module Forge
           "mode" => method(:cmd_mode),
           "theme" => method(:cmd_theme),
           "todo" => method(:cmd_todo),
+          "scroll" => method(:cmd_scroll),
+          "mouse" => method(:cmd_mouse),
           "queue" => method(:cmd_queue),
           "tools" => method(:cmd_tools),
           "ssh" => method(:cmd_ssh),
@@ -119,7 +181,9 @@ module Forge
             /model [name]      Show or switch provider/model
             /mode ask|allow|plan  Change permission mode
             /theme dark|light  Change display theme preference
-            /todo [clear]      Show or clear live todos
+            /todo [add|done|clear]  Manage the live todo list
+            /scroll up|down|top|bottom  Scroll long output
+            /mouse on|off      Toggle terminal mouse reporting
             /queue             Show queued work
             /tools             List available tools
             /ssh [list|connect <name>]  SSH host management
@@ -130,7 +194,7 @@ module Forge
             /skills            List loaded skills
             /trust             Trust current workspace
             /auto [on|off]     Toggle auto-approve mode
-            /permissions       List permanent approvals
+            /permissions [ask|allow|plan|toggle]  Permission controls/list approvals
             /new               Start a fresh session
             /exit              Exit Cruks
         HELP
@@ -170,10 +234,30 @@ module Forge
       def cmd_todo(args)
         return @app.todo_summary unless args && !args.empty?
 
-        case args.split.first
+        parts = args.split(/\s+/, 2)
+        case parts.first
+        when "add"
+          return "Usage: /todo add description" if parts[1].to_s.strip.empty?
+
+          @app.add_todo(parts[1]); @app.todo_summary
+        when "done", "complete"
+          return "Usage: /todo done ID" unless parts[1]
+
+          @app.complete_todo(parts[1]); @app.todo_summary
         when "clear" then @app.clear_todos; "Todos cleared"
-        else "Usage: /todo [clear]"
+        else "Usage: /todo [add description|done ID|clear]"
         end
+      end
+
+      def cmd_scroll(args)
+        @app.scroll_output(args || "bottom")
+      end
+
+      def cmd_mouse(args)
+        return "Mouse: #{@app.mouse_enabled? ? 'on' : 'off'}" unless args
+
+        @app.set_mouse(args.split.first)
+        "Mouse reporting: #{@app.mouse_enabled? ? 'on' : 'off'}"
       end
 
       def cmd_queue(_args)
@@ -254,6 +338,16 @@ module Forge
       end
 
       def cmd_permissions(args)
+        value = args.to_s.downcase
+        if %w[ask allow plan].include?(value)
+          @app.set_permission_mode(value)
+          return "Permission mode: #{@app.permission_mode}"
+        end
+        if value == "toggle" || %w[on off].include?(value)
+          next_mode = value == "off" || (value == "toggle" && @app.permission_mode == "allow") ? "ask" : "allow"
+          @app.set_permission_mode(next_mode)
+          return "Permission mode: #{@app.permission_mode}"
+        end
         if args&.start_with?("remove ")
           key = args.delete_prefix("remove ")
           return @app.remove_permission(key) ? "Approval removed" : "Approval not found"
@@ -282,6 +376,7 @@ module Forge
         @slash = SlashCommands.new(self)
         @debug_mode = false
         @auto_approve = runtime.workspace.auto_approve
+        @mouse_enabled = false
         runtime.permissions.handler = method(:request_permission)
       end
 
@@ -289,10 +384,12 @@ module Forge
         $stdout.puts @renderer.banner
         @renderer.info("Workspace: #{runtime.workspace.root}")
         @renderer.info("Provider: #{current_provider.name} (#{current_provider.model})")
-        @renderer.info("Shortcuts: /help commands · /mode ask|allow|plan permissions · /todo live tasks · /model model · /new session")
-        @renderer.info("Type /help for the full command and tool reference. Ctrl+C to interrupt.\n")
+        @renderer.info("Shortcuts: /help · /permissions toggle · /todo · /scroll · /mouse on|off · /quit")
+        @renderer.info("Ctrl+C interrupts; Ctrl+D or /quit exits. Mouse is off by default; enable with /mouse on.\n")
 
         loop do
+          @renderer.footer(provider: current_provider.name, model: current_provider.model,
+                           mode: permission_mode, todos: Agent::TODO_STORE.open_count)
           input = read_user_input
           break if input.nil?
 
@@ -324,6 +421,8 @@ module Forge
             Forge.logger.error(e.full_message)
           end
         end
+      ensure
+        @renderer.set_mouse(false) if @mouse_enabled
       end
 
       def current_provider
@@ -363,6 +462,30 @@ module Forge
 
       def clear_todos
         Agent::TODO_STORE.clear
+      end
+
+      def add_todo(description)
+        Agent::TODO_STORE.add(description)
+      end
+
+      def complete_todo(id)
+        Agent::TODO_STORE.complete(id)
+      end
+
+      def set_mouse(value)
+        normalized = value.to_s.downcase
+        raise ConfigurationError, "Mouse must be on or off" unless %w[on off].include?(normalized)
+
+        @mouse_enabled = normalized == "on"
+        @renderer.set_mouse(@mouse_enabled)
+      end
+
+      def mouse_enabled?
+        @mouse_enabled
+      end
+
+      def scroll_output(direction)
+        @renderer.scroll(direction)
       end
 
       def permission_approvals
@@ -461,14 +584,14 @@ module Forge
           when :assistant_message
             content = data[:content].to_s
             if streaming
-              @renderer.stream_end
+              @renderer.stream_finished(streamed_content)
               streaming = false
             elsif !content.empty?
               @renderer.assistant(content)
             end
           when :tool_start
             if streaming
-              @renderer.stream_end
+              @renderer.stream_finished(streamed_content)
               streaming = false
               streamed_content.clear
             end
