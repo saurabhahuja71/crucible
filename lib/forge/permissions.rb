@@ -11,7 +11,7 @@ module Forge
     PLAN = "plan"
 
     class Manager
-      CAPABILITY_TOOLS = %w[write_file edit_file shell_execute ssh_execute http_request].freeze
+      CAPABILITY_TOOLS = %w[write_file edit_file apply_patch shell_execute ssh_execute http_request].freeze
 
       attr_accessor :handler
       attr_reader :mode

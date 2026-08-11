@@ -89,6 +89,13 @@ module Forge
         "blocked_paths" => ["/etc", "/usr", "/bin", "/sbin", "/var"],
         "confirm_destructive" => true
       },
+      "execution" => {
+        "timeout" => 60,
+        "max_output_bytes" => 32_000,
+        "environment_allowlist" => [],
+        "network" => "ask"
+      },
+      "tests" => { "commands" => [] },
       "ssh" => {
         "config_path" => "~/.config/cruks/ssh_hosts.toml",
         "default_timeout" => 30,
@@ -99,6 +106,7 @@ module Forge
         "isolation" => "thread"
       },
       "logging" => {
+        "enabled" => true,
         "level" => "info",
         "audit_path" => "~/.local/share/cruks/audit.log"
       },
@@ -125,6 +133,7 @@ module Forge
     def initialize(path)
       @path = Pathname(path)
       @data = deep_merge(DEFAULTS, load_file)
+      apply_environment_overrides!
       ensure_directories!
     end
 
@@ -166,6 +175,14 @@ module Forge
     end
 
     private
+
+    def apply_environment_overrides!
+      provider = @data["providers"][@data["providers"]["primary"]] ||= {}
+      provider["api_key"] = ENV["OPENAI_API_KEY"] if ENV["OPENAI_API_KEY"]
+      provider["base_url"] = ENV["OPENAI_BASE_URL"] if ENV["OPENAI_BASE_URL"]
+      provider["model"] = ENV["OPENAI_MODEL"] if ENV["OPENAI_MODEL"]
+      @data["permission_mode"] = ENV["CRUKS_PERMISSION_MODE"] if ENV["CRUKS_PERMISSION_MODE"]
+    end
 
     def load_file
       return {} unless @path.exist?

@@ -1,0 +1,1119 @@
+Phase,Focus,Goal
+1,Foundation,Project + basic TUI chat + streaming
+2,Agent Loop + Tools,Tool calling + permissions
+3,Polish UI,"Markdown, tool cards, status, themes"
+4,Multi-provider + Config,Easy model switching
+5,Advanced UX + Extra Tools,"Todo, options, plan mode, HTTP"
+6,Reliability + Headless,"Fast exec/ask, robustness"
+
+phase 1:
+You are an expert Ruby engineer. We are building a professional terminal coding agent called **Bolt** (or keep your existing name) using Ruby.
+
+### Goal of Phase 1
+Create a solid, working foundation with a clean full-screen TUI and streaming chat.
+
+### Tech Stack
+- Ruby 3.3+
+- RatatuiRuby (preferred) or Bubbletea + Lipgloss (Charm Ruby)
+- faraday or net/http for LLM calls
+- toml-rb for config
+- thor or OptionParser for CLI
+
+### Required Structure
+Already present
+
+
+
+### What to implement in Phase 1
+
+1. **CLI**
+   - `bolt`              → launch interactive TUI
+   - `bolt ask "…"`      → one-shot question, stream to stdout
+   - Basic `--help`
+
+2. **Config**
+   - `~/.config/bolt/config.toml` + local `bolt.toml`
+   - Support OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL from env
+   - Sensible defaults
+
+3. **Interactive TUI**
+   - Full-screen clean layout
+   - Scrollable chat transcript
+   - Input area at the bottom
+   - Status bar showing current model
+   - Commands: `/new`, `/quit`, `/help`
+   - Streaming responses appear token-by-token
+
+4. **Agent Core (no tools yet)**
+   - Conversation history
+   - Streaming chat via OpenAI-compatible API
+   - Works with Ollama, SGLang, OpenRouter, xAI, DeepSeek, etc.
+
+5. **Quality rules**
+   - Headless `ask` mode must not start the TUI
+   - Clean separation between TUI and agent logic
+   - Good error messages
+   - Ready for future phases
+
+### Deliverable
+A working agent I can run with:
+
+```bash
+bundle exec bolt
+bundle exec bolt ask "What is 2+2?"
+
+
+
+---
+
+Paste the Phase 1 prompt above to start.
+
+When Phase 1 is working, reply with **“Phase 1 done”** and I will give you the exact Phase 2 prompt (tools + agent loop).
+
+Would you like me to also give a version of the Phase 1 prompt specifically tuned for **Bubbletea (Charm Ruby)** instead of RatatuiRuby?
+
+
+Phase 2 Prompt — Agent Loop + Tools (Ruby)
+
+Phase 1 is complete and working. Now implement Phase 2.
+
+### Phase 2 Goal
+Turn the agent into a real tool-using coding agent.
+
+### What to implement
+
+1. **Tool system**
+   - Clean tool registry / interface
+   - Implement at least these tools:
+     - `read_file(path)`
+     - `list_dir(path = ".")`
+     - `run_shell(command)` (with basic safety)
+   - Easy to register new tools later
+
+2. **Agent loop**
+   - Full tool-calling support (OpenAI-style tools / function calling)
+   - Multi-turn loop: model → tool calls → execute → feed results back → continue
+   - Stream both text and tool calls cleanly
+
+3. **Permission modes**
+   - `ask` (default): confirm before running shell / dangerous actions
+   - `allow`: run without asking
+   - Show current mode in the status bar
+   - Easy way to switch (`/mode` or keybinding)
+
+4. **TUI improvements for tools**
+   - When a tool is called, show a clear tool card / block
+   - Display tool name, arguments, status, and result
+   - Keep streaming smooth while tools run
+
+5. **Headless support**
+   - `bolt exec "list files in current directory"` should work with tools
+   - In headless mode default to `allow` (or make it configurable)
+
+6. **Safety**
+   - Basic protection against dangerous shell commands
+   - Clear error handling when tools fail
+
+### Rules
+- Keep the clean architecture from Phase 1
+- Do not break existing interactive chat or `ask` mode
+- Headless mode must not start the full TUI
+- Prefer simple, readable Ruby
+- Good error messages
+
+### Success criteria
+I should be able to:
+
+Interactive:
+- Ask “what files are here?” → agent uses list_dir / read_file
+- Ask “run ls -la” → asks for confirmation (in ask mode) then runs it
+
+Headless:
+```bash
+bundle exec bolt exec "summarize the README"
+bundle exec bolt exec "list all ruby files"
+
+
+Phase 3 Prompt — UI Polish (Ruby)
+
+Phase 2 is complete. Now implement Phase 3 – UI Polish.
+
+### Goal
+Make the TUI look and feel professional (closer to Codex / OpenCode / Grok level).
+
+### What to implement
+
+1. **Better Markdown rendering**
+   - Proper support for **bold**, *italic*, `inline code`, headers, lists, and code fences
+   - Syntax highlighting in code blocks if possible
+   - Streaming should still look smooth
+
+2. **Tool call cards**
+   - Clear, well-designed tool cards
+   - Show: tool name, arguments, status (running / success / failed / denied), duration
+   - Result should be expandable or cleanly truncated
+   - Use consistent styling (borders, colors, spacing)
+
+3. **Improved Status Bar**
+   - Format example: `Bolt | Mode: ASK | Model: provider/model | Tokens: n`
+   - Always visible
+   - Updates live when mode or model changes
+
+4. **Themes**
+   - Proper theme system (at least one excellent dark theme)
+   - Centralize colors (no hardcoded colors scattered in the code)
+   - Easy to add more themes later
+
+5. **Visual polish**
+   - Clear visual separation between user messages, assistant messages, and tool cards
+   - Better spacing and hierarchy
+   - Smooth scrolling when new content arrives
+   - Keep all existing commands working (`/new`, `/quit`, `/help`, `/mode`)
+
+### Rules
+- Do not break tool calling or headless mode
+- Keep architecture clean
+- Prefer consistency and readability over cleverness
+- Maintain good performance
+
+### Success criteria
+The TUI should feel noticeably more polished:
+- Nice markdown
+- Professional tool cards
+- Clean status bar
+- Consistent theming
+- Overall calm and readable interface
+
+Phase 4 Prompt — Multi-provider + Config (Ruby)
+Phase 3 is complete. Now implement Phase 4 – Multi-provider + Config.
+
+### Goal
+Make it easy to use different models and providers with clean configuration.
+
+### What to implement
+
+1. **Improved Configuration**
+   - Support `~/.config/bolt/config.toml` and local `bolt.toml`
+   - Settings:
+     - default_provider
+     - default_model
+     - base_url
+     - api_key (prefer environment variables)
+     - permission_mode (ask / allow)
+     - theme
+   - Precedence: environment variables > local config > user config > defaults
+   - Clear and simple loading logic
+
+2. **Multi-provider support**
+   - Clean provider abstraction
+   - Support at least:
+     - OpenAI-compatible (OpenAI, OpenRouter, xAI, DeepSeek, SGLang, vLLM, etc.)
+     - Ollama
+   - Easy to add more providers later
+
+3. **Model switching**
+   - `/model` command (simple list or interactive picker)
+   - Show current provider + model in the status bar
+   - Remember the last used model
+
+4. **CLI improvements**
+   - `bolt --model xxx`
+   - `bolt --provider xxx`
+   - `ask` and `exec` must respect the same configuration
+
+5. **Status bar upgrades**
+   - Clearly show provider/model
+   - Show token count when available
+   - Show current permission mode
+
+### Rules
+- Do not break the polished UI from Phase 3
+- Headless mode must stay fast and free of TUI initialization
+- Good error messages when API key or model is missing
+- Keep the code clean and modular
+
+### Success criteria
+- I can easily switch models and providers
+- Config is clean and works for both interactive and headless modes
+- Status bar accurately reflects the current setup
+
+Refer /scratch/sauahuja/gobin/goprojects/src/github.com/user/dboper/coding_agent, this is full fledged ruby coding agent. Dont copy code as such. Identify missing features and continue implementing in next phases.
+Sample from chatgpt when it readh that github website-
+
+# Build a Production-Grade Terminal Coding Agent
+
+Build a production-quality terminal coding agent inspired by:
+
+https://github.com/radanskoric/coding_agent
+
+The reference implementation demonstrates the basic architecture: an interactive agent loop, LLM tool calling, file inspection/editing, shell execution with user approval, and Docker-based workspace isolation.
+
+Do not copy its limitations. Implement the stronger design below.
+
+## 1. Core architecture
+
+Create an interactive terminal coding agent with these components:
+
+* Agent loop / conversation manager
+* LLM provider abstraction
+* Tool registry
+* Tool execution layer
+* Workspace/security layer
+* User approval / permissions layer
+* Conversation/context manager
+* Command execution subsystem
+* Git integration
+* Test/verification subsystem
+* Logging/observability layer
+
+The architecture must make tools independently testable and make the LLM provider replaceable.
+
+The agent should be able to:
+
+1. Receive a coding request.
+2. Inspect the repository.
+3. Search for relevant code.
+4. Read files selectively.
+5. Modify files.
+6. Run tests/builds/linting.
+7. Inspect failures.
+8. Iterate.
+9. Show the user what changed.
+10. Stop when the requested work is complete.
+
+## 2. Interactive terminal UI
+
+Provide a terminal REPL.
+
+Required behavior:
+
+* Accept repeated user messages.
+* Stream model responses.
+* Clearly display tool calls.
+* Clearly display tool results.
+* Show command approval prompts when required.
+* Support `exit` / `quit`.
+* Handle Ctrl-C gracefully.
+* Handle model/tool errors without terminating the entire session.
+* Preserve conversation state throughout the session.
+
+Provide useful visual separation between:
+
+* assistant reasoning/output
+* tool calls
+* command execution
+* errors
+* final result
+
+Do not expose hidden chain-of-thought. Only display concise user-facing status/progress information.
+
+## 3. Workspace model
+
+Every agent session has a configured workspace root.
+
+All filesystem tools must operate inside this root.
+
+Implement strong path validation:
+
+* Resolve paths before access.
+* Reject `../` traversal.
+* Reject paths resolving outside the workspace.
+* Reject symlink escapes.
+* Prevent access to arbitrary host files.
+* Make absolute paths either rejected or normalized only when they remain inside the workspace.
+* Return a structured tool error when access is denied.
+
+Support:
+
+* current workspace
+* relative paths
+* configurable workspace root
+
+The workspace should be the security boundary for all file operations.
+
+## 4. File inspection tools
+
+Implement:
+
+### `list_files`
+
+Arguments:
+
+* `path`
+* optional `recursive`
+* optional `include_hidden`
+* optional `max_depth`
+
+Behavior:
+
+* List files/directories.
+* Mark directories clearly.
+* Support recursive listing.
+* Avoid recursively traversing huge directories by default.
+* Ignore common generated directories when appropriate:
+
+  * `.git`
+  * `node_modules`
+  * `vendor`
+  * build/output directories
+  * virtual environments
+  * caches
+
+### `read_file`
+
+Arguments:
+
+* `path`
+* optional `start_line`
+* optional `end_line`
+
+Behavior:
+
+* Read text files.
+* Return line-numbered output.
+* Support partial ranges to avoid wasting context.
+* Detect binary files and refuse unsafe/unhelpful reads.
+* Return file metadata such as line count when useful.
+
+### `file_info`
+
+Return:
+
+* file type
+* size
+* line count when practical
+* modified time
+* whether it is a symlink
+
+## 5. Code/search tools
+
+Add repository search.
+
+### `grep`
+
+Arguments:
+
+* `pattern`
+* optional `path`
+* optional `glob`
+* optional `case_sensitive`
+* optional `max_results`
+
+Support:
+
+* regular expressions
+* literal search
+* filename filtering
+* line numbers
+
+Prefer fast search implementations such as ripgrep when available.
+
+### `find_files`
+
+Arguments:
+
+* `pattern`
+* `path`
+* optional `max_results`
+
+Allow the model to quickly locate files by name.
+
+### `search_symbols`
+
+Where practical, search for:
+
+* classes
+* methods/functions
+* interfaces
+* constants
+* imports
+* references
+
+Design this as an extensible tool so language-specific implementations can be added later.
+
+## 6. File modification
+
+Implement safe editing.
+
+### `edit_file`
+
+Arguments:
+
+* `path`
+* `old_str`
+* `new_str`
+
+Rules:
+
+* Exact text matching.
+* Match must occur exactly once.
+* If zero matches: fail.
+* If multiple matches: fail and report the number of matches.
+* Never silently replace the first occurrence.
+* Preserve file encoding when possible.
+* Preserve line endings when possible.
+* Create files explicitly when requested.
+
+### `write_file`
+
+Arguments:
+
+* `path`
+* `content`
+
+Use this for creating/replacing a complete file.
+
+Require stronger confirmation for destructive operations if configured.
+
+### `apply_patch`
+
+Support unified diff / patch application.
+
+The agent should preferably use targeted patches for existing code instead of rewriting entire files.
+
+Before applying a patch:
+
+* validate paths
+* validate patch syntax
+* ensure affected files remain inside the workspace
+
+After applying it:
+
+* report changed files
+* report failed hunks clearly
+
+## 7. Git awareness
+
+Add first-class Git support.
+
+Tools:
+
+### `git_status`
+
+Return:
+
+* modified files
+* staged files
+* untracked files
+* deleted files
+* renamed files
+
+### `git_diff`
+
+Return:
+
+* working-tree diff
+* optionally staged diff
+* optionally a specific file's diff
+
+### `git_log`
+
+Allow limited history inspection.
+
+### `git_show`
+
+Inspect a specific commit or object.
+
+### `git_branch`
+
+Inspect current branch and available branches.
+
+Do not automatically commit, reset, checkout, merge, rebase, push, or force-push without explicit user approval.
+
+Treat destructive Git operations as high-risk commands.
+
+## 8. Shell command execution
+
+Implement:
+
+### `run_shell_command`
+
+Arguments:
+
+* `command`
+* optional `working_directory`
+* optional `timeout_seconds`
+
+Requirements:
+
+* Execute only inside the workspace boundary.
+* Capture stdout.
+* Capture stderr.
+* Capture exit code.
+* Capture timeout status.
+* Return structured results.
+
+Example result shape:
+
+```json
+{
+  "exit_code": 0,
+  "stdout": "...",
+  "stderr": "...",
+  "timed_out": false
+}
+```
+
+Never allow an unbounded command execution.
+
+Set a configurable timeout.
+
+Kill the process tree when a timeout occurs.
+
+Limit output size so a command cannot flood the model context.
+
+Clearly indicate when output has been truncated.
+
+## 9. Command permissions / approval policy
+
+Implement configurable command policies.
+
+At minimum support:
+
+### Safe
+
+Commands that can run automatically, for example:
+
+* `git status`
+* `git diff`
+* `git log`
+* read-only search commands
+* test commands
+* lint commands
+
+### Ask
+
+Commands that require user confirmation.
+
+Examples:
+
+* package installation
+* file deletion
+* database operations
+* network operations
+* arbitrary shell commands
+
+### Deny
+
+Commands that should never run automatically or should be blocked entirely depending on configuration.
+
+Handle potentially dangerous commands such as:
+
+* `rm -rf`
+* destructive disk commands
+* credential exfiltration
+* suspicious shell pipelines
+* commands targeting files outside the workspace
+
+The policy engine should be configurable rather than hard-coded into the UI.
+
+When approval is required:
+
+1. Show the exact command.
+2. Show the working directory.
+3. Explain why approval is required.
+4. Ask the user.
+5. Return the user's decision to the agent.
+
+Support:
+
+* approve once
+* approve for this session
+* deny once
+* deny for this session
+
+## 10. Environment safety
+
+Do not blindly expose all host secrets to executed commands.
+
+Support configurable environment filtering.
+
+By default, avoid exposing sensitive environment variables such as:
+
+* API keys
+* access tokens
+* passwords
+* private credentials
+
+Allow explicit opt-in for variables required by the project.
+
+The agent must never intentionally print or transmit secrets.
+
+## 11. Network access
+
+Make network access explicit.
+
+Support configuration:
+
+* network disabled
+* network allowed for approved commands
+* network fully enabled
+
+The permission layer should be able to identify network-related commands and request approval.
+
+## 12. Docker sandbox
+
+Provide an optional isolated execution mode.
+
+Requirements:
+
+* Mount only the selected workspace.
+* Use a dedicated working directory inside the container.
+* Avoid exposing the host filesystem.
+* Configure CPU/memory/process limits where practical.
+* Configure network policy.
+* Forward required environment variables explicitly.
+* Preserve command stdout/stderr/exit status.
+
+The agent should be able to run tools either:
+
+* directly on the host
+* inside Docker
+
+through the same tool interface.
+
+## 13. Test and verification workflow
+
+The agent must support an iterative implementation loop.
+
+After modifying code, it should be able to:
+
+1. Determine the likely verification command.
+2. Run tests.
+3. Inspect failures.
+4. Modify code.
+5. Re-run the relevant tests.
+6. Stop once verification succeeds.
+
+Provide:
+
+### `run_tests`
+
+Allow the agent to invoke project tests using detected/configured commands.
+
+Support common ecosystems, for example:
+
+* Ruby
+* Python
+* Node.js
+* Java
+* Go
+* Rust
+
+Do not hard-code assumptions when project metadata gives a better answer.
+
+Detect common project files such as:
+
+* `package.json`
+* `pyproject.toml`
+* `requirements.txt`
+* `Gemfile`
+* `Cargo.toml`
+* `go.mod`
+* `pom.xml`
+* Gradle files
+
+Also support explicit project configuration overriding auto-detection.
+
+## 14. Automatic project understanding
+
+At session startup, inspect lightweight repository metadata.
+
+Determine when possible:
+
+* project type
+* language(s)
+* package manager
+* test framework
+* build system
+* lint system
+* Git status
+* repository root
+
+Do not dump the entire repository into context.
+
+Create a compact project summary for the model.
+
+## 15. Context management
+
+Implement context-efficient behavior.
+
+The agent should avoid:
+
+* reading enormous files unnecessarily
+* repeatedly reading identical files
+* dumping entire repositories
+* dumping huge command outputs
+
+Add:
+
+* bounded tool output
+* truncation
+* line-range reads
+* search-first behavior
+* cached file metadata
+* optional caching of recently read content
+
+When output is truncated, tell the model how to retrieve the omitted content.
+
+## 16. Automatic compaction / summarization
+
+Long coding sessions must not fail because the context window is exhausted.
+
+Implement a context-management strategy that can:
+
+* summarize old conversation/tool history
+* preserve the current task
+* preserve important decisions
+* preserve changed files
+* preserve unresolved errors
+* preserve relevant test results
+
+The compacted context should retain enough information for the agent to continue working correctly.
+
+## 17. Recovery and retries
+
+Tools must return structured errors.
+
+The agent should recover from:
+
+* file not found
+* ambiguous edit
+* permission denied
+* command failure
+* test failure
+* timeout
+* malformed patch
+* invalid tool arguments
+* model API errors
+
+For transient provider errors, implement bounded retries with backoff.
+
+Do not blindly retry destructive operations.
+
+## 18. Model/provider abstraction
+
+Do not couple the agent architecture to one LLM vendor.
+
+Define an interface for:
+
+* sending messages
+* streaming responses
+* tool calls
+* tool results
+* token/context metadata where available
+
+Support provider configuration through environment/configuration.
+
+The initial implementation may target one provider, but adding another provider should not require rewriting the agent.
+
+## 19. Tool schema quality
+
+Every tool must have:
+
+* clear name
+* precise description
+* JSON schema
+* typed arguments
+* validation
+* structured result
+* structured error
+
+Tool descriptions should tell the model:
+
+* what the tool does
+* when to use it
+* what not to use it for
+* important constraints
+
+## 20. Audit logging
+
+Maintain an optional session log.
+
+Record:
+
+* user request
+* model tool calls
+* tool arguments
+* command approvals/denials
+* command exit codes
+* files changed
+* test results
+* errors
+
+Do not log secrets.
+
+Provide a configuration option to disable persistent logging.
+
+## 21. Change summary
+
+At the end of a coding task, produce a concise summary containing:
+
+* what changed
+* files modified
+* important implementation decisions
+* tests run
+* test results
+* remaining issues or limitations
+
+Also show the final Git diff summary.
+
+Do not claim tests passed unless they actually passed.
+
+## 22. User confirmation before risky operations
+
+Require explicit confirmation for:
+
+* deleting files
+* overwriting large files
+* destructive Git operations
+* package installation when not trusted
+* external network actions
+* database mutations
+* commands outside normal development workflows
+
+The policy must remain configurable.
+
+## 23. Observability / debug mode
+
+Add a debug mode that can show:
+
+* selected model
+* tool calls
+* tool latency
+* command latency
+* token usage if available
+* retries
+* errors
+
+Normal mode should remain clean and developer-friendly.
+
+## 24. Configuration
+
+Support a configuration file plus environment variables.
+
+Configuration should cover:
+
+* provider
+* model
+* workspace
+* sandbox mode
+* Docker image
+* command timeout
+* max output size
+* approval mode
+* network policy
+* environment variable allowlist
+* ignored directories
+* test commands
+* logging
+* debug mode
+
+Environment variables should override configuration-file values where appropriate.
+
+## 25. Security requirements
+
+Treat security as a first-class requirement.
+
+At minimum:
+
+* prevent path traversal
+* prevent symlink workspace escapes
+* restrict command working directory
+* restrict process execution where configured
+* restrict network access where configured
+* filter secrets from environment
+* avoid leaking secrets into logs
+* limit command execution time
+* limit output size
+* require approval for destructive actions
+* never trust tool arguments without validation
+
+Write explicit security tests for these cases.
+
+## 26. Testing requirements
+
+Provide a comprehensive automated test suite.
+
+Test:
+
+### Filesystem
+
+* read file
+* read line range
+* missing file
+* binary file
+* list directory
+* recursive listing
+* hidden files
+* path traversal
+* absolute path escape
+* symlink escape
+
+### Editing
+
+* exact replacement
+* zero-match error
+* multi-match error
+* new file creation
+* patch application
+* malformed patch
+
+### Shell
+
+* successful command
+* failed command
+* timeout
+* oversized output
+* rejected command
+* denied command
+* working-directory escape
+
+### Git
+
+* clean repository
+* modified files
+* untracked files
+* diff retrieval
+
+### Agent
+
+* tool invocation
+* tool result handling
+* model error recovery
+* context compaction
+* graceful Ctrl-C
+* session termination
+
+### Security
+
+Include regression tests for every discovered security boundary.
+
+## 27. Acceptance criteria
+
+The finished agent should be capable of completing a realistic request such as:
+
+> "Find where authentication is implemented, add validation for expired tokens, update the relevant tests, run the test suite, and summarize the changes."
+
+The agent should autonomously:
+
+1. Inspect the repository.
+2. Search for authentication code.
+3. Read relevant files.
+4. Identify the correct implementation.
+5. Modify the code safely.
+6. Modify/add tests.
+7. Run the relevant tests.
+8. Diagnose failures.
+9. Iterate if needed.
+10. Show the final changes.
+11. Provide an accurate final summary.
+
+The user should not need to manually orchestrate every file read or test command.
+
+## 28. Implementation quality
+
+Prioritize:
+
+* correctness
+* security
+* predictable behavior
+* small, reviewable changes
+* strong test coverage
+* clear errors
+* maintainability
+
+Avoid implementing everything as one large agent class.
+
+Use clear module boundaries such as:
+
+```text
+agent/
+  agent_loop
+  conversation
+  model
+  tools
+  permissions
+  workspace
+  shell
+  git
+  sandbox
+  context
+  logging
+  config
+```
+
+Keep tools thin and move security/policy decisions into dedicated infrastructure.
+
+## 29. Important behavioral rules
+
+The agent must never:
+
+* claim a command succeeded when it failed
+* claim tests passed when they were not run or failed
+* silently ignore an ambiguous edit
+* access files outside the workspace
+* bypass user approval requirements
+* expose hidden reasoning
+* fabricate tool results
+* silently discard tool errors
+
+When uncertain, prefer an explicit tool error and recovery attempt over guessing.
+
+## 30. Deliverables
+
+Produce:
+
+1. Complete implementation.
+2. Automated test suite.
+3. Configuration example.
+4. Docker sandbox configuration.
+5. README with installation and usage.
+6. Security model documentation.
+7. Example coding-agent session.
+8. Clear list of supported languages/test systems.
+9. Troubleshooting section.
+
+Start by inspecting the existing project structure if there is already an implementation. Preserve useful code where appropriate, but refactor aggressively where required to satisfy the architecture above.
+
+Do not stop after scaffolding. Implement the complete end-to-end workflow and run the tests before reporting completion.
+
+Once completed. Shared results.
+
+---
+
+## Implementation audit and completion record (2026-08-11)
+
+The requirements above are the source of truth. The existing Cruks implementation
+already covered the interactive loop, streaming providers, failover, tools,
+permissions, workspace checks, TUI commands, sessions, SSH, MCP, audit hooks,
+parallel agents, HTTP, and model switching. The following gaps were identified
+and completed in this pass:
+
+* [implemented] `file_info`, bounded `find_files`, `search_symbols`, and validated
+  `apply_patch` tools.
+* [implemented] `git_show`, `git_branch`, and automatic `run_tests` detection for
+  Ruby, Python, Node, Go, Rust, and Maven projects.
+* [implemented] bounded shell execution with configurable timeout/output limits,
+  filtered environment variables, and configurable audit logging.
+* [implemented] symlink-aware workspace boundary validation, including exact
+  boundary checks that reject sibling-prefix escapes.
+* [implemented] `ask` headless alias and `--provider`; headless execution now
+  selects non-interactive tool permission behavior.
+* [implemented] environment overrides for API key, base URL, model, and permission
+  mode, with execution/network/test configuration defaults.
+
+The following areas remain intentionally lightweight but are represented by the
+existing architecture and configuration: Docker isolation is optional and must be
+provided by the deployment environment; project understanding is metadata-driven
+through tools; context compaction keeps a recent bounded window; and final change
+summaries are produced by the agent response rather than a second report format.
+These are design limitations to revisit if a deployment requires stronger isolation,
+provider-generated summaries, or full-screen TUI rendering.
+
+once done everything including polished doc for google caching , do git add and git push
+
+Google caching note: no Google provider, search contract, or cache interface
+exists in this repository. A privacy-preserving caching boundary and integration
+guidance were added to README.md; a provider-specific Google cache remains
+blocked until its API and retention requirements are defined.

@@ -16,8 +16,8 @@ module Forge
       def resolve(path, write: false)
         resolved = normalize_path(path)
 
-        return resolved if within_workspace?(resolved)
-        return resolved if !write && @trusted && within_home?(resolved)
+        return validate_real_path!(resolved, write: write) if within_workspace?(resolved)
+        return validate_real_path!(resolved, write: write) if !write && @trusted && within_home?(resolved)
 
         raise SafetyError, "Path escapes workspace: #{path} -> #{resolved}"
       end
@@ -35,12 +35,31 @@ module Forge
 
       def within_home?(path)
         home = Pathname(Dir.home).expand_path.to_s
-        Pathname(path).expand_path.to_s.start_with?(home)
+        value = Pathname(path).expand_path.to_s
+        value == home || value.start_with?("#{home}#{File::SEPARATOR}")
       end
 
       def within_workspace?(path)
         path = Pathname(path).expand_path
-        path.to_s.start_with?(@root.to_s)
+        path.to_s == @root.to_s || path.to_s.start_with?("#{@root}#{File::SEPARATOR}")
+      end
+
+      private
+
+      def validate_real_path!(path, write:)
+        candidate = path.expand_path
+        existing = candidate
+        existing = existing.parent until existing.exist? || existing.root?
+        real = Pathname(existing.realpath)
+        boundary = if within_workspace?(candidate)
+                     Pathname(@root.realpath)
+                   else
+                     Pathname(Dir.home).realpath
+                   end
+        inside = real.to_s == boundary.to_s || real.to_s.start_with?("#{boundary}#{File::SEPARATOR}")
+        raise SafetyError, "Symlink escapes allowed boundary: #{path}" unless inside
+
+        candidate
       end
 
       def destructive?(action, path: nil)
@@ -54,7 +73,12 @@ module Forge
     end
 
     class Sandbox
+      attr_reader :execution_timeout, :max_output_bytes
+
       def initialize(config)
+        @execution_timeout = config.fetch("execution.timeout", 60).to_i
+        @max_output_bytes = config.fetch("execution.max_output_bytes", 32_000).to_i
+        @environment_allowlist = Array(config.fetch("execution.environment_allowlist", []))
         @validator = CommandValidator.new(
           allowed_commands: config.fetch("safety.allowed_commands", Configuration.default_allowed_commands),
           sandbox: config.fetch("safety.sandbox_shell", true)
@@ -76,10 +100,20 @@ module Forge
           end
         end
       end
+
+      def filtered_environment
+        return ENV.to_h if @environment_allowlist.include?("*")
+
+        ENV.to_h.select do |key, _value|
+          @environment_allowlist.include?(key) || key.match?(/\A(PATH|HOME|USER|LANG|LC_[A-Z_]+|TERM)\z/)
+        end
+      end
     end
 
     class AuditLogger
       def initialize(config)
+        @disabled = config.fetch("logging.enabled", true) == false
+        return if @disabled
         path = config.expand_path(config.fetch("logging.audit_path").to_s)
         path.parent.mkpath
         @file = File.open(path, "a")
@@ -87,6 +121,7 @@ module Forge
       end
 
       def log(event, details = {})
+        return if @disabled
         entry = {
           timestamp: Time.now.utc.iso8601(3),
           event: event,
@@ -99,7 +134,7 @@ module Forge
       end
 
       def close
-        @file.close
+        @file&.close
       end
     end
   end

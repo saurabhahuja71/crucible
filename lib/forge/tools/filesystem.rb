@@ -136,6 +136,81 @@ module Forge
       end
     end
 
+    class FileInfo < Base
+      def name = "file_info"
+      def description = "Return type, size, line count, modification time, and symlink status for a workspace file."
+      def parameters
+        { type: "object", properties: { path: { type: "string" } }, required: ["path"] }
+      end
+
+      protected
+
+      def execute(args)
+        path = resolve_path(args["path"])
+        raise ToolError, "Path does not exist: #{path}" unless path.exist?
+        lines = path.file? ? path.each_line.count : nil
+        Result.new(output: JSON.generate({ path: path.to_s, type: path.directory? ? "directory" : "file",
+                                           size: path.file? ? path.size : nil, lines: lines,
+                                           modified_at: path.mtime.utc.iso8601, symlink: path.symlink? }))
+      end
+    end
+
+    class FindFiles < Base
+      def name = "find_files"
+      def description = "Find workspace files by basename glob without traversing common generated directories."
+      def parameters
+        { type: "object", properties: { pattern: { type: "string" }, path: { type: "string" }, max_results: { type: "integer" } }, required: ["pattern"] }
+      end
+
+      protected
+
+      def execute(args)
+        root = resolve_path(args["path"] || ".")
+        max = (args["max_results"] || 100).to_i
+        ignored = %w[.git vendor node_modules tmp log build dist coverage .bundle]
+        matches = root.glob("**/#{args['pattern']}").reject { |p| p.each_filename.any? { |part| ignored.include?(part) } }.first(max)
+        Result.new(output: matches.map { |p| p.relative_path_from(@workspace.root).to_s }.join("\n").then { |s| s.empty? ? "No files found" : s })
+      end
+    end
+
+    class SearchSymbols < Base
+      def name = "search_symbols"
+      def description = "Search common Ruby, Python, JavaScript, Go, Rust, and C symbol declarations."
+      def parameters
+        { type: "object", properties: { pattern: { type: "string" }, path: { type: "string" }, max_results: { type: "integer" } }, required: ["pattern"] }
+      end
+
+      protected
+
+      def execute(args)
+        pattern = args["pattern"].to_s
+        regex = "(?:class|module|def|function|func|struct|enum|interface|const)\\s+(?:[A-Za-z_][\\w:]*\\s*)*#{Regexp.escape(pattern)}"
+        SearchFiles.new(workspace: @workspace, sandbox: @sandbox, audit: @audit).call("pattern" => regex, "path" => args["path"] || ".", "glob" => args["glob"])
+      end
+    end
+
+    class ApplyPatch < Base
+      def name = "apply_patch"
+      def description = "Apply a validated unified diff to files inside the workspace."
+      def parameters
+        { type: "object", properties: { patch: { type: "string" } }, required: ["patch"] }
+      end
+
+      protected
+
+      def execute(args)
+        patch = args["patch"].to_s
+        paths = patch.lines.filter_map { |line| match = line.match(/^\+\+\+ b\/(.+)$/); match && match[1].strip }
+        raise ToolError, "Patch contains no target files" if paths.empty?
+        paths.each { |path| resolve_path(path, write: true) }
+        check = Open3.capture3("patch", "-p1", "--batch", "--dry-run", stdin_data: patch, chdir: @workspace.root.to_s)
+        raise ToolError, "Patch check failed: #{check[1].strip}" unless check[2].success?
+        result = Open3.capture3("patch", "-p1", "--batch", stdin_data: patch, chdir: @workspace.root.to_s)
+        raise ToolError, "Patch failed: #{result[1].strip}" unless result[2].success?
+        Result.new(output: "Applied patch to #{paths.join(', ')}")
+      end
+    end
+
     class SearchFiles < Base
       def name = "search_files"
       def description = "Search file contents with ripgrep/grep (regex). Best for finding aliases, hosts, config keys. Path may be a file or directory (workspace-relative, absolute, or ~/..., e.g. path=~/.bashrc pattern=podman9)."

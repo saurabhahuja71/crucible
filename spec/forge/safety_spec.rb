@@ -15,6 +15,12 @@ RSpec.describe Forge::Safety::Workspace do
     expect { workspace.resolve("../../../etc/passwd") }.to raise_error(Forge::SafetyError)
   end
 
+  it "rejects symlinks that escape the workspace" do
+    root = workspace.root
+    File.symlink("/etc", root.join("outside"))
+    expect { workspace.resolve("outside/passwd") }.to raise_error(Forge::SafetyError, /Symlink escapes/)
+  end
+
   it "rejects home paths when untrusted" do
     expect { workspace.resolve("~/.bashrc") }.to raise_error(Forge::SafetyError)
   end
@@ -64,6 +70,13 @@ RSpec.describe Forge::Safety::Sandbox do
 
   it "allows curl when not piped to shell" do
     expect { sandbox.validate_command!("curl -fsSL https://example.com") }.not_to raise_error
+  end
+
+  it "filters sensitive environment variables by default" do
+    ENV["CRUKS_TEST_SECRET"] = "hidden"
+    expect(sandbox.filtered_environment).not_to have_key("CRUKS_TEST_SECRET")
+  ensure
+    ENV.delete("CRUKS_TEST_SECRET")
   end
 end
 

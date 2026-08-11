@@ -86,3 +86,43 @@ RSpec.describe Forge::Tools::EditFile do
     expect(File.read(File.join(tmpdir, "app.rb"))).to include("2.0.0")
   end
 end
+
+RSpec.describe Forge::Tools::FileInfo do
+  let(:tmpdir) { Dir.mktmpdir }
+  let(:config) { Forge::Configuration.new("/nonexistent/config.toml") }
+  let(:workspace) { Forge::Safety::Workspace.new(config, cwd: tmpdir) }
+  let(:sandbox) { Forge::Safety::Sandbox.new(config) }
+
+  after { FileUtils.remove_entry(tmpdir) }
+
+  it "returns file metadata" do
+    File.write(File.join(tmpdir, "note.txt"), "hello\n")
+    result = described_class.new(workspace: workspace, sandbox: sandbox).call("path" => "note.txt")
+    expect(result.success).to be true
+    expect(JSON.parse(result.output)).to include("type" => "file", "lines" => 1, "symlink" => false)
+  end
+end
+
+RSpec.describe Forge::Tools::ApplyPatch do
+  let(:tmpdir) { Dir.mktmpdir }
+  let(:config) { Forge::Configuration.new("/nonexistent/config.toml") }
+  let(:workspace) { Forge::Safety::Workspace.new(config, cwd: tmpdir) }
+  let(:sandbox) { Forge::Safety::Sandbox.new(config) }
+
+  after { FileUtils.remove_entry(tmpdir) }
+
+  it "applies a checked unified patch" do
+    File.write(File.join(tmpdir, "note.txt"), "before\n")
+    patch = <<~PATCH
+      diff --git a/note.txt b/note.txt
+      --- a/note.txt
+      +++ b/note.txt
+      @@ -1 +1 @@
+      -before
+      +after
+    PATCH
+    result = described_class.new(workspace: workspace, sandbox: sandbox).call("patch" => patch)
+    expect(result.success).to be true
+    expect(File.read(File.join(tmpdir, "note.txt"))).to eq("after\n")
+  end
+end

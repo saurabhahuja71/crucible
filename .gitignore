@@ -5,3 +5,6 @@
 /.rspec_status
 /tmp/
 /.cruks/
+
+dist/
+*.gem

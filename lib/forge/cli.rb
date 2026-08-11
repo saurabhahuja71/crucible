@@ -12,6 +12,8 @@ module Forge
       case args[0]
       when "exec"
         headless(args[1..], opts)
+      when "ask"
+        headless(args[1..], opts)
       when "sessions"
         list_sessions
       when "version", "-v", "--version"
@@ -31,7 +33,7 @@ module Forge
     private
 
     def parse_options(argv)
-      opts = { config: nil, model: nil, trust: false, allow_tools: false }
+      opts = { config: nil, model: nil, provider: nil, trust: false, allow_tools: false }
       remaining = argv.dup
 
       while remaining.any?
@@ -41,6 +43,9 @@ module Forge
           remaining.shift(2)
         when "-m", "--model"
           opts[:model] = remaining[1]
+          remaining.shift(2)
+        when "-p", "--provider"
+          opts[:provider] = remaining[1]
           remaining.shift(2)
         when "--trust"
           opts[:trust] = true
@@ -60,6 +65,7 @@ module Forge
       Runtime.new(
         config_path: opts[:config],
         model: opts[:model],
+        provider: opts[:provider],
         trust: opts[:trust]
       )
     end
@@ -74,8 +80,18 @@ module Forge
       abort "Usage: cruks exec \"task description\"" if task.empty?
 
       runtime = build_runtime(opts)
-      runtime.set_permission_mode("allow") if opts[:allow_tools]
-      result = runtime.exec(task, stream: true)
+      # Headless execution is non-interactive; use allow unless the config or a
+      # future explicit --ask-tools switch opts into an approval handler.
+      runtime.set_permission_mode("allow")
+      runtime.agent_loop.on_event = lambda do |event, data|
+        case event
+        when :tool_start
+          warn "[tool:start] #{data[:name]} #{JSON.generate(data[:arguments])}"
+        when :tool_end
+          warn "[tool:end] #{data[:name]} success=#{data[:success]} output=#{data[:output]}"
+        end
+      end
+      result = runtime.exec(task, stream: false)
       puts result
     end
 
@@ -119,6 +135,7 @@ module Forge
         Options:
           -c, --config PATH       Path to config TOML file
           -m, --model NAME        Override model for primary provider
+          -p, --provider NAME     Select the configured provider
           --trust                 Trust workspace without prompt
           --allow-tools           Allow capability tools for headless execution
 

@@ -67,5 +67,27 @@ module Forge
         Result.new(output: output, success: $CHILD_STATUS.success?)
       end
     end
+
+    class GitShow < Base
+      def name = "git_show"
+      def description = "Show a bounded Git object or commit."
+      def parameters
+        { type: "object", properties: { object: { type: "string" } }, required: ["object"] }
+      end
+
+      protected
+
+      def execute(args) = run_git("show --stat --oneline --no-renames #{Shellwords.escape(args['object'])}")
+    end
+
+    class GitBranch < Base
+      def name = "git_branch"
+      def description = "Show the current Git branch and local branches."
+      def parameters = { type: "object", properties: {} }
+
+      protected
+
+      def execute(_args) = run_git("branch --all --no-color")
+    end
   end
 end

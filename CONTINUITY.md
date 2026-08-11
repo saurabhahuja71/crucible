@@ -1,5 +1,14 @@
 # Cruks continuity
 
+## Latest audit (2026-08-11)
+
+- `prompt.xt` now contains an implementation audit and records the completed gaps.
+- Added file metadata/search/symbol/patch tools, Git show/branch tools, automatic `run_tests`, bounded shell execution, environment filtering, and configurable audit logging.
+- Hardened workspace symlink and sibling-prefix boundary checks; added `ask` alias and `--provider` CLI support.
+- Added regression coverage; `ruby -S rspec` passes 32 examples and all Ruby files pass syntax checks.
+- Docker isolation and full-screen rendering remain documented deployment limitations.
+- Pre-existing working-tree items `.gitignore`, `lib/forge/cli.rb`, and `hi` were preserved; review staged scope before push.
+
 - Ruby local-first coding agent in `lib/forge/`, exposed as the `cruks` gem and CLI.
 - Existing architecture includes OpenAI-compatible/Ollama providers with failover, sessions, skills, SSH, parallel agents, MCP scaffolding, filesystem/shell/git tools, safety validation, audit logging, and a terminal UI.
 - Latest feature parity work added `ask`/`allow`/`plan` permission modes with persistent exact approvals, live todo tools/store, bounded HTTP requests, model switching, theme state, session reset, and matching slash commands.

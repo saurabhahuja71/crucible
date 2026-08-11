@@ -170,6 +170,22 @@ base_url = "http://localhost:11434"
 model = "llama3.2"
 ```
 
+### Caching and privacy
+
+Cruks deliberately does not cache provider responses, Google results, API keys,
+or arbitrary command output. Sessions are persisted locally under
+`~/.local/share/cruks/sessions/` so they can be resumed, and the agent bounds
+large file and command output before it reaches the model. Context reduction
+keeps the system prompt and recent conversation; it does not upload a hidden
+cache to a third party.
+
+If a deployment adds Google Search or another external retrieval service, keep
+that cache outside Cruks and make its policy explicit: use a short TTL for
+volatile results, key entries by the complete normalized request and locale,
+exclude credentials and personalized responses, and honor the service's cache
+and deletion requirements. The current `http_request` tool is bounded HTTP
+access, not a Google cache implementation.
+
 ### Supported Providers
 
 Any OpenAI-compatible API works out of the box:
