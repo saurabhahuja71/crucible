@@ -18,6 +18,12 @@ _cruks_ollama_run() {
   fi
   export CRUKS_ROOT="${CRUKS_ROOT:-$(cd "${_CRUKS_OLLAMA_SCRIPT_DIR}/.." && pwd)}"
   export CRUKS_OLLAMA_CFG="${CRUKS_OLLAMA_CFG:-${CRUKS_ROOT}/config/cruks.ollama.toml}"
+  # Keep runtime state out of read-only home paths.  This is set by the
+  # launcher, so the value reaches the actual Ruby process rather than only
+  # the interactive development shell.
+  export CRUKS_DATA_DIR="${CRUKS_DATA_DIR:-${TMPDIR:-/tmp}/cruks-runtime}"
+  mkdir -p "${CRUKS_DATA_DIR}" || return 1
+  export CRUKS_AUDIT_PATH="${CRUKS_AUDIT_PATH:-${CRUKS_DATA_DIR}/audit.log}"
 
   # Ollama default: http://localhost:11434, uses OpenAI-compatible API via ollama/openai endpoint
   local ollama_host="${OLLAMA_HOST:-http://localhost:11434}"
@@ -102,6 +108,8 @@ EOF
     -u ALL_PROXY -u all_proxy \
     no_proxy="localhost,127.0.0.1" \
     NO_PROXY="localhost,127.0.0.1" \
+    CRUKS_DATA_DIR="${CRUKS_DATA_DIR}" \
+    CRUKS_AUDIT_PATH="${CRUKS_AUDIT_PATH}" \
     "${launch[@]}" \
       --config "$CRUKS_OLLAMA_CFG" \
       --model "$model_id" \

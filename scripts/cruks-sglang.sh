@@ -14,6 +14,9 @@ _CRUKS_SGLANG_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _cruks_sglang_run() {
   export CRUKS_ROOT="${CRUKS_ROOT:-$(cd "${_CRUKS_SGLANG_SCRIPT_DIR}/.." && pwd)}"
   export CRUKS_SGLANG_CFG="${CRUKS_SGLANG_CFG:-${CRUKS_ROOT}/config/cruks.sglang.toml}"
+  export CRUKS_DATA_DIR="${CRUKS_DATA_DIR:-${TMPDIR:-/tmp}/cruks-runtime}"
+  mkdir -p "${CRUKS_DATA_DIR}" || return 1
+  export CRUKS_AUDIT_PATH="${CRUKS_AUDIT_PATH:-${CRUKS_DATA_DIR}/audit.log}"
 
   if [ -f "${HOME}/.sglang-tunnel.bash" ]; then
     # shellcheck disable=SC1091
@@ -56,6 +59,8 @@ _cruks_sglang_run() {
     OPENAI_API_BASE="${SGLANG_HOST}/v1" \
     no_proxy="localhost,127.0.0.1" \
     NO_PROXY="localhost,127.0.0.1" \
+    CRUKS_DATA_DIR="${CRUKS_DATA_DIR}" \
+    CRUKS_AUDIT_PATH="${CRUKS_AUDIT_PATH}" \
     "${launch[@]}" \
       --config "$CRUKS_SGLANG_CFG" \
       --model "$model_id" \
