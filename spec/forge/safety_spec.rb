@@ -104,3 +104,27 @@ RSpec.describe Forge::SSH::Manager do
     end
   end
 end
+
+RSpec.describe Forge::SSH::SystemConnection do
+  let(:host) do
+    Forge::SSH::Host.new(name: "podman8", host: "10.0.2.54", user: "opc", proxy_jump: "bastion")
+  end
+
+  it "uses the user's SSH config to avoid a broken system config" do
+    connection = described_class.new(host)
+    status = instance_double(Process::Status, success?: true)
+    config = Tempfile.new("cruks-ssh-config")
+    previous_config = ENV["CRUKS_SSH_CONFIG"]
+    ENV["CRUKS_SSH_CONFIG"] = config.path
+
+    expect(Open3).to receive(:capture3).with(
+      "ssh", "-F", config.path, "-J", "bastion", "-o", "BatchMode=yes",
+      "opc@10.0.2.54", "uname -a"
+    ).and_return(["Linux podman8\n", "", status])
+
+    expect(connection.exec("uname -a")).to eq("Linux podman8\n")
+  ensure
+    ENV["CRUKS_SSH_CONFIG"] = previous_config
+    config&.close!
+  end
+end

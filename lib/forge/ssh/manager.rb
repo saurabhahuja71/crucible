@@ -90,7 +90,11 @@ module Forge
       end
 
       def exec(command)
-        argv = ["ssh", "-J", @host.proxy_jump, "-o", "BatchMode=yes", "#{@host.user}@#{@host.host}", command]
+        argv = ["ssh"]
+        config = ENV["CRUKS_SSH_CONFIG"].to_s
+        config = File.expand_path("~/.ssh/config") if config.empty?
+        argv.concat(["-F", config]) if File.file?(config)
+        argv.concat(["-J", @host.proxy_jump, "-o", "BatchMode=yes", "#{@host.user}@#{@host.host}", command])
         stdout, stderr, status = Open3.capture3(*argv)
         output = [stdout, stderr].reject(&:empty?).join
         raise Error, "SSH command failed (#{status.exitstatus}): #{output}" unless status.success?
