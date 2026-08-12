@@ -13,7 +13,7 @@ module Forge
 
   ROOT = Pathname(__dir__).join("..").expand_path.freeze
   CONFIG_DIR = Pathname(Dir.home).join(".config", "cruks").freeze
-  DATA_DIR = Pathname(Dir.home).join(".local", "share", "cruks").freeze
+  DATA_DIR = Pathname(ENV.fetch("CRUKS_DATA_DIR", Pathname(Dir.home).join(".local", "share", "cruks").to_s)).freeze
 
   def self.logger
     @logger ||= Logger.new($stderr).tap do |log|

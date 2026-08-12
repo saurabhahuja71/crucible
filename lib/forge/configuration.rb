@@ -182,6 +182,8 @@ module Forge
       provider["base_url"] = ENV["OPENAI_BASE_URL"] if ENV["OPENAI_BASE_URL"]
       provider["model"] = ENV["OPENAI_MODEL"] if ENV["OPENAI_MODEL"]
       @data["permission_mode"] = ENV["CRUKS_PERMISSION_MODE"] if ENV["CRUKS_PERMISSION_MODE"]
+      @data["logging"] ||= {}
+      @data["logging"]["audit_path"] = ENV["CRUKS_AUDIT_PATH"] if ENV["CRUKS_AUDIT_PATH"]
     end
 
     def load_file
